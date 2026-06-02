@@ -22,6 +22,7 @@ bucket_name = "cat-care-images"
 [[kv_namespaces]]
 binding = "KV_CACHE"
 id = "96dbace162804be18c1d20cd4c4bdffa"
+preview_id = "96dbace162804be18c1d20cd4c4bdffa"
 
 [vars]
 ENVIRONMENT = "production"

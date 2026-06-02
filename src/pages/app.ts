@@ -912,7 +912,8 @@ async function loadDashboard() {
       const due = new Date(v.expiration_date); due.setHours(0,0,0,0);
       const diff = Math.round((due - today) / 86400000);
       let badge, badgeStyle;
-      if (diff <= 0) { badge = 'ถึงกำหนดแล้ว'; badgeStyle = 'background:#fed7d7;color:#c53030'; }
+      if (diff < 0) { badge = '⚠️ เลย ' + Math.abs(diff) + ' วันแล้ว'; badgeStyle = 'background:#fed7d7;color:#c53030'; }
+      else if (diff === 0) { badge = '⚠️ ถึงกำหนดวันนี้'; badgeStyle = 'background:#fed7d7;color:#c53030'; }
       else if (diff <= 3) { badge = 'อีก ' + diff + ' วัน'; badgeStyle = 'background:#feebc8;color:#c05621'; }
       else { badge = 'อีก ' + diff + ' วัน'; badgeStyle = 'background:#bee3f8;color:#2b6cb0'; }
       return \`
