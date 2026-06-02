@@ -135,6 +135,30 @@ label{display:block;font-size:.85rem;font-weight:600;color:#4a5568;margin-bottom
 .weight-log-delete{background:transparent;color:#a0aec0;padding:.3rem .5rem;font-size:.85rem;border-radius:4px}
 .weight-log-delete:hover{background:#fed7d7;color:#742a2a}
 
+.tl-filters{display:flex;gap:.4rem;flex-wrap:wrap;margin-bottom:1.2rem}
+.tl-filter{padding:.4rem .9rem;border-radius:999px;background:#edf2f7;color:#4a5568;font-size:.85rem;font-weight:600;cursor:pointer;transition:all .15s}
+.tl-filter:hover{background:#e2e8f0}
+.tl-filter.active{background:#667eea;color:white}
+.tl-filter .count{margin-left:.3rem;opacity:.7;font-size:.75rem}
+.timeline{position:relative;padding-left:2.2rem}
+.timeline::before{content:'';position:absolute;left:.95rem;top:.5rem;bottom:.5rem;width:2px;background:linear-gradient(to bottom,#667eea,#cbd5e0)}
+.tl-item{position:relative;margin-bottom:1.2rem}
+.tl-item::before{content:attr(data-icon);position:absolute;left:-2.2rem;top:.1rem;width:2rem;height:2rem;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:.95rem;background:white;border:2px solid;box-shadow:0 2px 6px rgba(0,0,0,.08);z-index:1}
+.tl-item.t-vaccine::before{border-color:#48bb78}
+.tl-item.t-medication::before{border-color:#4299e1}
+.tl-item.t-medical::before{border-color:#ed8936}
+.tl-item.t-weight::before{border-color:#9f7aea}
+.tl-card{background:white;border-radius:10px;padding:.9rem 1rem;box-shadow:0 1px 3px rgba(0,0,0,.06);border-left:4px solid transparent}
+.tl-item.t-vaccine .tl-card{border-left-color:#48bb78}
+.tl-item.t-medication .tl-card{border-left-color:#4299e1}
+.tl-item.t-medical .tl-card{border-left-color:#ed8936}
+.tl-item.t-weight .tl-card{border-left-color:#9f7aea}
+.tl-date{font-size:.75rem;color:#a0aec0;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem}
+.tl-title{font-weight:700;color:#2d3748;font-size:.95rem;margin-bottom:.2rem}
+.tl-desc{font-size:.85rem;color:#718096;line-height:1.5}
+.tl-month{font-size:.85rem;font-weight:700;color:#a0aec0;margin:1.5rem 0 .8rem;text-transform:uppercase;letter-spacing:.1em}
+.tl-month:first-child{margin-top:0}
+
 @media(max-width:640px){
   .main{padding:1rem}
   .auth-card{padding:1.5rem}
@@ -223,12 +247,14 @@ label{display:block;font-size:.85rem;font-weight:600;color:#4a5568;margin-bottom
         <button class="tab" data-tab="meds" onclick="switchDetailTab('meds')">💊 ยา</button>
         <button class="tab" data-tab="medical" onclick="switchDetailTab('medical')">🏥 ประวัติ</button>
         <button class="tab" data-tab="weight" onclick="switchDetailTab('weight')">⚖️ น้ำหนัก</button>
+        <button class="tab" data-tab="timeline" onclick="switchDetailTab('timeline')">📅 Timeline</button>
       </div>
       <div id="tab-info" class="tab-content"></div>
       <div id="tab-vacc" class="tab-content hidden"></div>
       <div id="tab-meds" class="tab-content hidden"></div>
       <div id="tab-medical" class="tab-content hidden"></div>
       <div id="tab-weight" class="tab-content hidden"></div>
+      <div id="tab-timeline" class="tab-content hidden"></div>
     </div>
   </div>
 </div>
@@ -378,11 +404,98 @@ function closeDetail() {
 
 function switchDetailTab(tab) {
   document.querySelectorAll('#cat-detail .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-  ['info', 'vacc', 'meds', 'medical', 'weight'].forEach(t => document.getElementById('tab-' + t).classList.toggle('hidden', t !== tab));
+  ['info', 'vacc', 'meds', 'medical', 'weight', 'timeline'].forEach(t => document.getElementById('tab-' + t).classList.toggle('hidden', t !== tab));
   if (tab === 'vacc') loadVaccinations();
   if (tab === 'meds') loadMedications();
   if (tab === 'medical') loadMedicalHistory();
   if (tab === 'weight') loadWeightHistory();
+  if (tab === 'timeline') loadTimeline();
+}
+
+let TIMELINE_EVENTS = [];
+let TIMELINE_FILTER = 'all';
+
+async function loadTimeline() {
+  const el = document.getElementById('tab-timeline');
+  el.innerHTML = '<div class="empty">กำลังโหลด...</div>';
+  try {
+    const r = await api('/api/cats/' + CURRENT_CAT.id + '/timeline');
+    TIMELINE_EVENTS = r.data.events;
+    renderTimeline();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+function renderTimeline() {
+  const el = document.getElementById('tab-timeline');
+  const events = TIMELINE_EVENTS;
+
+  const counts = {
+    all: events.length,
+    vaccine: events.filter(e => e.type === 'vaccine').length,
+    medication: events.filter(e => e.type === 'medication').length,
+    medical: events.filter(e => e.type === 'medical').length,
+    weight: events.filter(e => e.type === 'weight').length,
+  };
+
+  const filters = \`
+    <div class="tl-filters">
+      <button class="tl-filter \${TIMELINE_FILTER === 'all' ? 'active' : ''}" onclick="filterTimeline('all')">ทั้งหมด<span class="count">\${counts.all}</span></button>
+      <button class="tl-filter \${TIMELINE_FILTER === 'vaccine' ? 'active' : ''}" onclick="filterTimeline('vaccine')">💉 วัคซีน<span class="count">\${counts.vaccine}</span></button>
+      <button class="tl-filter \${TIMELINE_FILTER === 'medication' ? 'active' : ''}" onclick="filterTimeline('medication')">💊 ยา<span class="count">\${counts.medication}</span></button>
+      <button class="tl-filter \${TIMELINE_FILTER === 'medical' ? 'active' : ''}" onclick="filterTimeline('medical')">🏥 ป่วย<span class="count">\${counts.medical}</span></button>
+      <button class="tl-filter \${TIMELINE_FILTER === 'weight' ? 'active' : ''}" onclick="filterTimeline('weight')">⚖️ น้ำหนัก<span class="count">\${counts.weight}</span></button>
+    </div>
+  \`;
+
+  const filtered = TIMELINE_FILTER === 'all' ? events : events.filter(e => e.type === TIMELINE_FILTER);
+
+  if (filtered.length === 0) {
+    el.innerHTML = filters + '<div class="empty"><div class="empty-icon">📅</div><p>ยังไม่มีเหตุการณ์ในไทม์ไลน์</p></div>';
+    return;
+  }
+
+  const icons = { vaccine: '💉', medication: '💊', medical: '🏥', weight: '⚖️' };
+  const monthLabels = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+
+  const groups = new Map();
+  for (const ev of filtered) {
+    const d = new Date(ev.date);
+    const key = d.getFullYear() + '-' + String(d.getMonth()).padStart(2, '0');
+    const label = monthLabels[d.getMonth()] + ' ' + (d.getFullYear() + 543);
+    if (!groups.has(key)) groups.set(key, { label, items: [] });
+    groups.get(key).items.push(ev);
+  }
+
+  let html = filters;
+  for (const { label, items } of groups.values()) {
+    html += '<div class="tl-month">' + label + '</div><div class="timeline">';
+    for (const ev of items) {
+      html += \`
+        <div class="tl-item t-\${ev.type}" data-icon="\${icons[ev.type] || '•'}">
+          <div class="tl-card">
+            <div class="tl-date">\${formatDate(ev.date)}</div>
+            <div class="tl-title">\${escapeHtml(ev.title)}</div>
+            \${ev.description ? '<div class="tl-desc">' + escapeHtml(ev.description) + '</div>' : ''}
+          </div>
+        </div>
+      \`;
+    }
+    html += '</div>';
+  }
+
+  el.innerHTML = html;
+}
+
+function filterTimeline(type) {
+  TIMELINE_FILTER = type;
+  renderTimeline();
+}
+
+function formatDate(iso) {
+  const d = new Date(iso);
+  const days = ['อา.','จ.','อ.','พ.','พฤ.','ศ.','ส.'];
+  const months = ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'];
+  return days[d.getDay()] + ' ' + d.getDate() + ' ' + months[d.getMonth()] + ' ' + (d.getFullYear() + 543);
 }
 
 function renderInfoTab() {

@@ -10,6 +10,7 @@ import { dietRoutes } from './routes/diet';
 import { dashboardRoutes } from './routes/dashboard';
 import { uploadRoutes } from './routes/upload';
 import { weightRoutes } from './routes/weights';
+import { timelineRoutes } from './routes/timeline';
 import { lineWebhook } from './webhooks/line';
 import { handleScheduled } from './scheduled/notifications';
 import { errorToResponse } from './utils/errors';
@@ -67,6 +68,7 @@ app.route('/api', dietRoutes);
 app.route('/api', dashboardRoutes);
 app.route('/api', uploadRoutes);
 app.route('/api', weightRoutes);
+app.route('/api', timelineRoutes);
 app.notFound((c) => c.json({ success: false, error: 'Not Found' }, 404));
 
 export default { fetch: app.fetch, scheduled: handleScheduled };
