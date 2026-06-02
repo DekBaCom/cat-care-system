@@ -2,6 +2,7 @@ import { Hono } from 'hono';
 import { z } from 'zod';
 import type { Env } from '../types';
 import { AuthService } from '../services/authService';
+import { loginOrRegisterGoogleUser } from '../services/googleAuth';
 import { authMiddleware, getUserId } from '../middleware/auth';
 import { errorToResponse } from '../utils/errors';
 
@@ -24,6 +25,18 @@ authRoutes.post('/login', async (c) => {
     if (!parsed.success) return c.json({ success: false, error: 'ข้อมูลไม่ถูกต้อง' }, 400);
     return c.json({ success: true, data: await AuthService.login(parsed.data.email, parsed.data.password, c.env) });
   } catch (error) { const { statusCode, body } = errorToResponse(error as Error); return c.json(body, statusCode as 400 | 401 | 500); }
+});
+
+authRoutes.post('/google', async (c) => {
+  try {
+    const { idToken } = await c.req.json() as { idToken: string };
+    if (!idToken) return c.json({ success: false, error: 'Missing idToken' }, 400);
+    const result = await loginOrRegisterGoogleUser(idToken, c.env);
+    return c.json({ success: true, data: result });
+  } catch (error) {
+    console.error('[google auth]', error);
+    return c.json({ success: false, error: (error as Error).message || 'Google authentication failed' }, 401);
+  }
 });
 
 authRoutes.post('/line/connect', authMiddleware, async (c) => {

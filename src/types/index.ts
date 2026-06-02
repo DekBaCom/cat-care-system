@@ -6,6 +6,7 @@ export interface Env {
   LINE_CHANNEL_ID: string;
   LINE_CHANNEL_SECRET: string;
   LINE_CHANNEL_ACCESS_TOKEN: string;
+  GOOGLE_CLIENT_ID: string;
   ENVIRONMENT: string;
 }
 

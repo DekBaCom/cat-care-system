@@ -30,10 +30,10 @@ label{display:block;font-size:.85rem;font-weight:600;color:#4a5568;margin-bottom
 .auth-logo .emoji{font-size:3.5rem}
 .auth-logo h1{font-size:1.6rem;margin-top:.5rem;color:#2d3748}
 .auth-logo p{color:#718096;font-size:.9rem;margin-top:.3rem}
-.auth-tabs{display:flex;gap:.5rem;margin-bottom:1.5rem;background:#f7fafc;padding:.3rem;border-radius:10px}
-.auth-tab{flex:1;padding:.6rem;border-radius:7px;background:transparent;color:#718096;font-weight:600;font-size:.9rem;cursor:pointer}
-.auth-tab.active{background:white;color:#667eea;box-shadow:0 2px 4px rgba(0,0,0,.05)}
 .auth-msg{padding:.7rem;border-radius:8px;font-size:.85rem;margin-bottom:1rem;display:none}
+.gbtn-wrap{display:flex;justify-content:center;margin-bottom:1.25rem}
+.divider{display:flex;align-items:center;gap:.7rem;color:#a0aec0;font-size:.75rem;text-transform:uppercase;letter-spacing:.1em;margin:1.25rem 0;font-weight:600}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:#e2e8f0}
 .auth-msg.show{display:block}
 .auth-msg.error{background:#fed7d7;color:#742a2a}
 .auth-msg.success{background:#c6f6d5;color:#22543d}
@@ -204,11 +204,14 @@ label{display:block;font-size:.85rem;font-weight:600;color:#4a5568;margin-bottom
       <h1>Cat Care System</h1>
       <p>ระบบจัดการสุขภาพแมวของคุณ</p>
     </div>
-    <div class="auth-tabs">
-      <button class="auth-tab active" data-tab="login" onclick="switchTab('login')">เข้าสู่ระบบ</button>
-      <button class="auth-tab" data-tab="register" onclick="switchTab('register')">สมัครสมาชิก</button>
-    </div>
     <div id="auth-msg" class="auth-msg"></div>
+
+    <div class="gbtn-wrap">
+      <div id="g_id_onload"></div>
+      <div id="g_id_signin"></div>
+    </div>
+
+    <div class="divider">หรือเข้าสู่ระบบด้วยอีเมล</div>
 
     <form id="login-form" onsubmit="handleLogin(event)">
       <div class="field">
@@ -220,22 +223,6 @@ label{display:block;font-size:.85rem;font-weight:600;color:#4a5568;margin-bottom
         <input type="password" name="password" required minlength="8" placeholder="••••••••">
       </div>
       <button type="submit" class="btn btn-block" id="login-btn">เข้าสู่ระบบ</button>
-    </form>
-
-    <form id="register-form" class="hidden" onsubmit="handleRegister(event)">
-      <div class="field">
-        <label>ชื่อ</label>
-        <input type="text" name="name" required minlength="2" placeholder="ชื่อของคุณ">
-      </div>
-      <div class="field">
-        <label>อีเมล</label>
-        <input type="email" name="email" required placeholder="you@example.com">
-      </div>
-      <div class="field">
-        <label>รหัสผ่าน</label>
-        <input type="password" name="password" required minlength="8" placeholder="อย่างน้อย 8 ตัวอักษร">
-      </div>
-      <button type="submit" class="btn btn-block" id="register-btn">สมัครสมาชิก</button>
     </form>
   </div>
 </div>
@@ -316,13 +303,6 @@ function toast(msg, type = 'success') {
   setTimeout(() => el.remove(), 3000);
 }
 
-function switchTab(tab) {
-  document.querySelectorAll('.auth-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-  document.getElementById('login-form').classList.toggle('hidden', tab !== 'login');
-  document.getElementById('register-form').classList.toggle('hidden', tab !== 'register');
-  document.getElementById('auth-msg').classList.remove('show');
-}
-
 function authMsg(text, type) {
   const el = document.getElementById('auth-msg');
   el.textContent = text; el.className = 'auth-msg show ' + type;
@@ -342,18 +322,35 @@ async function handleLogin(e) {
   finally { btn.disabled = false; btn.textContent = 'เข้าสู่ระบบ'; }
 }
 
-async function handleRegister(e) {
-  e.preventDefault();
-  const btn = document.getElementById('register-btn');
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>กำลังสมัคร...';
-  const f = new FormData(e.target);
+async function handleGoogleCredential(response) {
+  authMsg('กำลังเข้าสู่ระบบด้วย Google...', 'success');
   try {
-    const r = await api('/api/auth/register', { method: 'POST', body: JSON.stringify({ name: f.get('name'), email: f.get('email'), password: f.get('password') }) });
+    const r = await api('/api/auth/google', { method: 'POST', body: JSON.stringify({ idToken: response.credential }) });
     TOKEN = r.data.token; USER = r.data.user;
     localStorage.setItem('token', TOKEN); localStorage.setItem('user', JSON.stringify(USER));
     showApp();
-  } catch (err) { authMsg(err.message, 'error'); }
-  finally { btn.disabled = false; btn.textContent = 'สมัครสมาชิก'; }
+  } catch (err) { authMsg('Google login ล้มเหลว: ' + err.message, 'error'); }
+}
+
+async function initGoogleSignIn() {
+  try {
+    const cfg = await (await fetch('/api/config')).json();
+    if (!cfg.googleClientId) {
+      document.querySelector('.gbtn-wrap').innerHTML = '<div style="font-size:.8rem;color:#a0aec0;text-align:center">⚠️ ยังไม่ได้ตั้งค่า Google Sign-In</div>';
+      return;
+    }
+    window.handleGoogleCredential = handleGoogleCredential;
+    if (window.google && window.google.accounts) {
+      window.google.accounts.id.initialize({
+        client_id: cfg.googleClientId,
+        callback: handleGoogleCredential,
+      });
+      window.google.accounts.id.renderButton(document.getElementById('g_id_signin'), {
+        type: 'standard', theme: 'outline', size: 'large',
+        text: 'signin_with', shape: 'pill', logo_alignment: 'left', width: 320,
+      });
+    }
+  } catch (err) { console.error('Google init failed', err); }
 }
 
 function logout() {
@@ -1082,8 +1079,23 @@ async function deleteCat() {
   } catch (err) { toast(err.message, 'error'); }
 }
 
+function loadGoogleScript() {
+  return new Promise((resolve) => {
+    if (window.google?.accounts) return resolve();
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.async = true; s.defer = true;
+    s.onload = () => resolve();
+    document.head.appendChild(s);
+  });
+}
+
 // Initial load
-if (TOKEN && USER) showApp();
+if (TOKEN && USER) {
+  showApp();
+} else {
+  loadGoogleScript().then(initGoogleSignIn);
+}
 </script>
 </body>
 </html>`;

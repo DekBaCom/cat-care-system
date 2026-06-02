@@ -49,6 +49,11 @@ app.get('/api', (c) => c.json({
 
 app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString(), environment: c.env.ENVIRONMENT }));
 
+app.get('/api/config', (c) => c.json({
+  googleClientId: c.env.GOOGLE_CLIENT_ID || '',
+  environment: c.env.ENVIRONMENT,
+}));
+
 app.get('/photos/*', async (c) => {
   const key = c.req.path.slice('/photos/'.length);
   const obj = await c.env.IMAGES.get(key);
