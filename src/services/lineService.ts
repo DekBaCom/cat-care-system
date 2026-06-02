@@ -57,7 +57,7 @@ export class LineService {
       reply = cats.length > 0 ? `🐱 แมวทั้งหมด:\n${cats.map((c, i) => `${i + 1}. ${c.name}`).join('\n')}` : 'ยังไม่มีข้อมูลแมว';
     } else if (text === '/vaccines_due') {
       const rows = await query<{ vaccine_name: string; expiration_date: string; cat_name: string }>(env.DB, `SELECT v.vaccine_name, v.expiration_date, c.name AS cat_name FROM vaccinations v JOIN cats c ON v.cat_id = c.id WHERE date(v.expiration_date) <= date('now', '+7 days') AND date(v.expiration_date) >= date('now') ORDER BY v.expiration_date ASC`, []);
-      reply = rows.length > 0 ? `💉 วัคซีนใกล้หมดอายุ:\n${rows.map((r) => `• ${r.cat_name}: ${r.vaccine_name} (${r.expiration_date})`).join('\n')}` : 'ไม่มีวัคซีนใกล้หมดอายุ';
+      reply = rows.length > 0 ? `💉 วัคซีนที่ต้องฉีดเร็วๆ นี้:\n${rows.map((r) => `• ${r.cat_name}: ${r.vaccine_name}\n  นัดฉีด: ${r.expiration_date}`).join('\n')}` : 'ไม่มีวัคซีนที่ต้องฉีดในช่วง 7 วันนี้';
     } else if (text === '/medications') {
       const rows = await query<{ medicine_name: string; cat_name: string }>(env.DB, `SELECT m.medicine_name, c.name AS cat_name FROM medications m JOIN cats c ON m.cat_id = c.id WHERE m.is_active = 1`, []);
       reply = rows.length > 0 ? `💊 ยาที่ต้องให้:\n${rows.map((r) => `• ${r.cat_name}: ${r.medicine_name}`).join('\n')}` : 'ไม่มียาที่ต้องให้ในขณะนี้';

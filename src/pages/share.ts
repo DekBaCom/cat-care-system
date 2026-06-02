@@ -53,12 +53,12 @@ export async function renderSharePage(token: string, env: Env): Promise<string |
   const vaccRows = vaccinations.length === 0
     ? '<tr><td colspan="4" class="empty-cell">ไม่มีข้อมูลวัคซีน</td></tr>'
     : vaccinations.map(v => {
-        const expired = v.expiration_date && new Date(v.expiration_date) < new Date();
-        const expStyle = expired ? 'color:#e53e3e;font-weight:600' : '';
+        const isDue = v.expiration_date && new Date(v.expiration_date) <= new Date();
+        const expStyle = isDue ? 'color:#e53e3e;font-weight:600' : 'color:#2f855a;font-weight:600';
         return `<tr>
           <td>${esc(v.vaccine_name)}</td>
           <td>${v.vaccination_date}</td>
-          <td style="${expStyle}">${v.expiration_date ?? '-'}${expired ? ' ⚠️' : ''}</td>
+          <td style="${expStyle}">${v.expiration_date ?? '-'}${isDue ? ' ⚠️ ถึงกำหนดแล้ว' : ''}</td>
           <td>${esc(v.clinic_name ?? '-')}</td>
         </tr>`;
       }).join('');
@@ -195,7 +195,7 @@ tr:hover td{background:#fafbff}
     <div class="section-title">💉 ประวัติวัคซีน</div>
     <div style="overflow-x:auto">
     <table>
-      <thead><tr><th>วัคซีน</th><th>วันที่ฉีด</th><th>หมดอายุ</th><th>คลินิก</th></tr></thead>
+      <thead><tr><th>วัคซีน</th><th>วันที่ฉีด</th><th>นัดฉีดครั้งต่อไป</th><th>คลินิก</th></tr></thead>
       <tbody>${vaccRows}</tbody>
     </table>
     </div>

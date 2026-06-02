@@ -4,12 +4,17 @@ import { NotificationService } from '../services/notificationService';
 export async function handleScheduled(_event: ScheduledEvent, env: Env, ctx: ExecutionContext): Promise<void> {
   ctx.waitUntil((async () => {
     try {
-      await NotificationService.sendDueNotifications(env);
+      // Pre-create 7-day / 1-day / same-day vaccine notifications (runs every hour)
+      await NotificationService.checkVaccinationsDue(env);
+
+      // Daily medication reminders at 9am UTC+7 (02:00 UTC)
       const hour = new Date().getUTCHours();
-      if (hour === 9 || hour === 18) {
-        await NotificationService.checkVaccinationsDue(env);
+      if (hour === 2) {
         await NotificationService.checkMedicationsDue(env);
       }
+
+      // Send all pending notifications that are due now
+      await NotificationService.sendDueNotifications(env);
     } catch (error) { console.error('[Scheduler]', error); }
   })());
 }

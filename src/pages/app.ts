@@ -64,6 +64,7 @@ label{display:block;font-size:.85rem;font-weight:600;color:#4a5568;margin-bottom
 .stat-label{font-size:.75rem;color:#718096;text-transform:uppercase;letter-spacing:.05em;font-weight:600;margin-bottom:.4rem}
 .stat-value{font-size:2rem;font-weight:700;color:#2d3748}
 .stat-icon{font-size:1.5rem;margin-bottom:.4rem}
+.stat-alert{border-left:4px solid #e53e3e;background:linear-gradient(135deg,#fff5f5,white)}
 
 /* Sections */
 .section{background:white;border-radius:12px;padding:1.5rem;margin-bottom:1.5rem;box-shadow:0 1px 3px rgba(0,0,0,.06)}
@@ -340,6 +341,9 @@ input,select,textarea{font-size:16px} /* Prevents iOS zoom on focus */
     <!-- Summary -->
     <div class="summary" id="summary"></div>
 
+    <!-- Vaccines Due -->
+    <div id="vaccines-due-section"></div>
+
     <!-- Cats -->
     <div class="section">
       <div class="section-head">
@@ -358,6 +362,7 @@ input,select,textarea{font-size:16px} /* Prevents iOS zoom on focus */
       <div class="tabs">
         <button class="tab active" data-tab="info" onclick="switchDetailTab('info')">ข้อมูล</button>
         <button class="tab" data-tab="vacc" onclick="switchDetailTab('vacc')">💉 วัคซีน</button>
+        <button class="tab" data-tab="deworm" onclick="switchDetailTab('deworm')">🐛 พยาธิ</button>
         <button class="tab" data-tab="meds" onclick="switchDetailTab('meds')">💊 ยา</button>
         <button class="tab" data-tab="medical" onclick="switchDetailTab('medical')">🏥 ประวัติ</button>
         <button class="tab" data-tab="weight" onclick="switchDetailTab('weight')">⚖️ น้ำหนัก</button>
@@ -366,6 +371,7 @@ input,select,textarea{font-size:16px} /* Prevents iOS zoom on focus */
       </div>
       <div id="tab-info" class="tab-content"></div>
       <div id="tab-vacc" class="tab-content hidden"></div>
+      <div id="tab-deworm" class="tab-content hidden"></div>
       <div id="tab-meds" class="tab-content hidden"></div>
       <div id="tab-medical" class="tab-content hidden"></div>
       <div id="tab-weight" class="tab-content hidden"></div>
@@ -663,14 +669,21 @@ function renderLineSettingsContent(connected, lineUserId) {
   el.innerHTML = \`
     \${connectedBlock}
 
-    <div style="background:#f7fafc;border-radius:10px;padding:1rem;margin-bottom:1rem">
-      <div style="font-weight:700;font-size:.85rem;color:#4a5568;margin-bottom:.7rem">
-        \${connected ? '🔄 เปลี่ยน LINE User ID' : '🔗 กรอก LINE User ID'}
+    <div style="background:#ebf8ff;border-radius:10px;padding:1rem;margin-bottom:.8rem">
+      <div style="font-weight:700;font-size:.85rem;color:#2b6cb0;margin-bottom:.5rem">🔢 วิธีที่ 1 — โค้ด 6 หลัก (แนะนำ)</div>
+      <div style="font-size:.8rem;color:#4a5568;margin-bottom:.7rem;line-height:1.6">
+        เพิ่ม LINE Bot เป็นเพื่อน → กดปุ่มด้านล่าง → ส่งโค้ดใน LINE Bot
+      </div>
+      <button class="btn btn-sm" id="gen-code-btn" onclick="generateLineCode()" style="background:#3182ce;color:white;border:none">📲 รับโค้ด 6 หลัก</button>
+      <div id="line-code-result" style="margin-top:.7rem"></div>
+    </div>
+
+    <div style="background:#f7fafc;border-radius:10px;padding:1rem;margin-bottom:.8rem">
+      <div style="font-weight:700;font-size:.85rem;color:#4a5568;margin-bottom:.5rem">
+        \${connected ? '🔄 วิธีที่ 2 — เปลี่ยน LINE User ID' : '🔗 วิธีที่ 2 — กรอก LINE User ID โดยตรง'}
       </div>
       <div style="font-size:.8rem;color:#718096;margin-bottom:.7rem;line-height:1.6">
-        วิธีหา LINE User ID:<br>
-        1. เพิ่ม LINE Bot เป็นเพื่อน → Bot จะส่ง User ID ให้ทันที<br>
-        2. หรือส่ง <code style="background:#e2e8f0;padding:.1rem .3rem;border-radius:4px">/myid</code> ใน LINE Bot
+        เพิ่ม LINE Bot → Bot จะส่ง User ID ให้ หรือส่ง <code style="background:#e2e8f0;padding:.1rem .3rem;border-radius:4px">/myid</code> ใน Bot
       </div>
       <div style="display:flex;gap:.5rem">
         <input id="line-uuid-input" placeholder="Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" style="flex:1;border:1px solid #e2e8f0;border-radius:8px;padding:.65rem .8rem;font-size:.82rem;font-family:monospace" maxlength="33">
@@ -679,7 +692,7 @@ function renderLineSettingsContent(connected, lineUserId) {
       <div id="line-uuid-error" style="color:#e53e3e;font-size:.78rem;margin-top:.4rem"></div>
     </div>
 
-    <details style="margin-bottom:1rem">
+    <details style="margin-bottom:.8rem">
       <summary style="font-size:.82rem;color:#718096;cursor:pointer;padding:.3rem 0">📋 คำสั่ง LINE Bot ที่ใช้ได้</summary>
       <div style="background:#f7fafc;border-radius:8px;padding:.8rem;margin-top:.5rem;font-size:.82rem;color:#4a5568;line-height:1.8">
         /myid — แสดง LINE User ID<br>
@@ -825,7 +838,7 @@ function renderShareModalContent(active, url) {
         <div style="font-size:.9rem;color:#2b6cb0;font-weight:600;margin-bottom:.4rem">📋 ข้อมูลที่หมอจะเห็น:</div>
         <div style="font-size:.82rem;color:#4a5568;line-height:1.7">
           ✅ ข้อมูลพื้นฐาน (ชื่อ เพศ สายพันธุ์ น้ำหนัก)<br>
-          ✅ ประวัติวัคซีน (วันหมดอายุ)<br>
+          ✅ ประวัติวัคซีน (วันนัดฉีดครั้งต่อไป)<br>
           ✅ ยาที่กำลังได้รับ<br>
           ✅ ประวัติการรักษา<br>
           ✅ โรคประจำตัว / แพ้ยา / อาหารต้องห้าม
@@ -886,8 +899,42 @@ async function loadDashboard() {
     document.getElementById('summary').innerHTML = \`
       <div class="stat"><div class="stat-icon">🐈</div><div class="stat-label">แมวทั้งหมด</div><div class="stat-value">\${s.totalCats}</div></div>
       <div class="stat"><div class="stat-icon">🏥</div><div class="stat-label">กำลังรักษา</div><div class="stat-value">\${s.catsInTreatment}</div></div>
-      <div class="stat"><div class="stat-icon">💉</div><div class="stat-label">วัคซีนใกล้หมดอายุ</div><div class="stat-value">\${s.vaccinesExpiringSoon}</div></div>
+      <div class="stat \${s.vaccinesExpiringSoon > 0 ? 'stat-alert' : ''}"><div class="stat-icon">💉</div><div class="stat-label">วัคซีนใกล้ถึงกำหนด</div><div class="stat-value">\${s.vaccinesExpiringSoon}</div></div>
       <div class="stat"><div class="stat-icon">💊</div><div class="stat-label">ยาที่กำลังให้</div><div class="stat-value">\${s.activeMedications}</div></div>
+    \`;
+
+    const vaccines = r.data.vaccines_due ?? [];
+    const vacSec = document.getElementById('vaccines-due-section');
+    if (vaccines.length === 0) { vacSec.innerHTML = ''; return; }
+
+    const today = new Date(); today.setHours(0,0,0,0);
+    const rows = vaccines.map(v => {
+      const due = new Date(v.expiration_date); due.setHours(0,0,0,0);
+      const diff = Math.round((due - today) / 86400000);
+      let badge, badgeStyle;
+      if (diff <= 0) { badge = 'ถึงกำหนดแล้ว'; badgeStyle = 'background:#fed7d7;color:#c53030'; }
+      else if (diff <= 3) { badge = 'อีก ' + diff + ' วัน'; badgeStyle = 'background:#feebc8;color:#c05621'; }
+      else { badge = 'อีก ' + diff + ' วัน'; badgeStyle = 'background:#bee3f8;color:#2b6cb0'; }
+      return \`
+        <div style="display:flex;align-items:center;gap:.8rem;padding:.75rem 0;border-bottom:1px solid #f0f0f0">
+          <div style="font-size:1.4rem">💉</div>
+          <div style="flex:1;min-width:0">
+            <div style="font-weight:600;font-size:.9rem;color:#2d3748">\${escapeHtml(v.cat_name)} — \${escapeHtml(v.vaccine_name)}</div>
+            <div style="font-size:.78rem;color:#718096;margin-top:.1rem">นัดฉีด: \${v.expiration_date}\${v.clinic_name ? ' · ' + escapeHtml(v.clinic_name) : ''}</div>
+          </div>
+          <span style="font-size:.75rem;font-weight:700;padding:.25rem .6rem;border-radius:20px;\${badgeStyle}">\${badge}</span>
+        </div>
+      \`;
+    }).join('');
+
+    vacSec.innerHTML = \`
+      <div class="section" style="margin-bottom:1.5rem">
+        <div class="section-head">
+          <div class="section-title">💉 วัคซีนใกล้ถึงกำหนด</div>
+          <span style="font-size:.78rem;color:#718096">\${vaccines.length} รายการ (30 วัน)</span>
+        </div>
+        <div>\${rows}</div>
+      </div>
     \`;
   } catch (err) {
     if (err.message.includes('Unauthorized')) logout();
@@ -942,8 +989,9 @@ function closeDetail() {
 
 function switchDetailTab(tab) {
   document.querySelectorAll('#cat-detail .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-  ['info', 'vacc', 'meds', 'medical', 'weight', 'timeline', 'expenses'].forEach(t => document.getElementById('tab-' + t).classList.toggle('hidden', t !== tab));
+  ['info', 'vacc', 'deworm', 'meds', 'medical', 'weight', 'timeline', 'expenses'].forEach(t => document.getElementById('tab-' + t).classList.toggle('hidden', t !== tab));
   if (tab === 'vacc') loadVaccinations();
+  if (tab === 'deworm') loadDewormings();
   if (tab === 'meds') loadMedications();
   if (tab === 'medical') loadMedicalHistory();
   if (tab === 'weight') loadWeightHistory();
@@ -1435,10 +1483,10 @@ async function loadVaccinations() {
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem">
           <div style="flex:1">
             <div class="record-title">💉 \${escapeHtml(v.vaccineName)}</div>
-            <div class="record-meta">ฉีดวันที่ \${v.vaccinationDate} \${v.expirationDate ? '· หมดอายุ ' + v.expirationDate : ''}</div>
+            <div class="record-meta">ฉีดวันที่ \${v.vaccinationDate} \${v.expirationDate ? '· นัดฉีดครั้งต่อไป: ' + v.expirationDate : ''}</div>
             \${v.clinicName ? '<div class="record-meta">📍 ' + escapeHtml(v.clinicName) + '</div>' : ''}
           </div>
-          \${v.expirationDate ? '<a href="' + buildGCalUrl('วัคซีน ' + v.vaccineName + ' (' + CURRENT_CAT.name + ')', v.expirationDate, 'วัคซีน ' + v.vaccineName + ' หมดอายุ\\nแมว: ' + CURRENT_CAT.name + (v.clinicName ? '\\nคลินิก: ' + v.clinicName : '')) + '" target="_blank" class="btn btn-sm btn-secondary" style="white-space:nowrap;font-size:.75rem;padding:.3rem .6rem" title="เพิ่มเข้า Google Calendar">📅 Calendar</a>' : ''}
+          \${v.expirationDate ? '<a href="' + buildGCalUrl('นัดฉีดวัคซีน ' + v.vaccineName + ' (' + CURRENT_CAT.name + ')', v.expirationDate, 'ถึงเวลาฉีดวัคซีน ' + v.vaccineName + '\\nแมว: ' + CURRENT_CAT.name + (v.clinicName ? '\\nคลินิก: ' + v.clinicName : '')) + '" target="_blank" class="btn btn-sm btn-secondary" style="white-space:nowrap;font-size:.75rem;padding:.3rem .6rem" title="เพิ่มเข้า Google Calendar">📅 Calendar</a>' : ''}
         </div>
       </div>
     \`).join('') + '</div>';
@@ -1537,7 +1585,7 @@ function openVaccModal() {
   modal('💉 เพิ่มวัคซีน', \`
     <div class="field"><label>ชื่อวัคซีน *</label><input name="vaccineName" required placeholder="FVRCP"></div>
     <div class="field"><label>วันที่ฉีด *</label><input type="date" name="vaccinationDate" required></div>
-    <div class="field"><label>วันหมดอายุ</label><input type="date" name="expirationDate"></div>
+    <div class="field"><label>วันนัดฉีดครั้งต่อไป</label><input type="date" name="expirationDate"></div>
     <div class="field"><label>คลินิก</label><input name="clinicName"></div>
     <div class="field"><label>สัตวแพทย์</label><input name="veterinarianName"></div>
     <div class="field"><label>เลข Lot</label><input name="lotNumber"></div>
@@ -1548,6 +1596,63 @@ function openVaccModal() {
     toast('เพิ่มวัคซีนสำเร็จ');
     loadVaccinations(); loadDashboard();
   });
+}
+
+async function loadDewormings() {
+  const el = document.getElementById('tab-deworm');
+  el.innerHTML = '<div style="margin-bottom:1rem"><button class="btn btn-sm" onclick="openDewormModal()">+ บันทึกถ่ายพยาธิ</button></div><div id="deworm-list"></div>';
+  try {
+    const r = await api('/api/cats/' + CURRENT_CAT.id + '/dewormings');
+    const list = document.getElementById('deworm-list');
+    if (r.data.dewormings.length === 0) { list.innerHTML = '<div class="empty">ยังไม่มีบันทึกการถ่ายพยาธิ</div>'; return; }
+    list.innerHTML = '<div class="records-list">' + r.data.dewormings.map(d => \`
+      <div class="record">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem">
+          <div style="flex:1">
+            <div class="record-title">🐛 ถ่ายพยาธิ \${d.productName ? '— ' + escapeHtml(d.productName) : ''}</div>
+            <div class="record-meta">วันที่ถ่าย: \${d.dewormingDate}\${d.nextDueDate ? ' · นัดครั้งต่อไป: ' + d.nextDueDate : ''}</div>
+            \${d.dose ? '<div class="record-meta">ขนาด: ' + escapeHtml(d.dose) + '</div>' : ''}
+            \${d.weightAtTime ? '<div class="record-meta">น้ำหนักวันที่ถ่าย: ' + d.weightAtTime + ' kg</div>' : ''}
+            \${d.clinicName ? '<div class="record-meta">📍 ' + escapeHtml(d.clinicName) + '</div>' : ''}
+            \${d.notes ? '<div class="record-meta">📝 ' + escapeHtml(d.notes) + '</div>' : ''}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:.3rem;align-items:flex-end">
+            \${d.nextDueDate ? '<a href="' + buildGCalUrl('ถ่ายพยาธิ ' + CURRENT_CAT.name, d.nextDueDate, 'ถึงเวลาถ่ายพยาธิ ' + CURRENT_CAT.name + (d.productName ? '\\nยา: ' + d.productName : '')) + '" target="_blank" class="btn btn-sm btn-secondary" style="white-space:nowrap;font-size:.75rem;padding:.3rem .6rem">📅 Calendar</a>' : ''}
+            <button class="btn btn-sm btn-secondary" style="font-size:.75rem;color:#e53e3e;border-color:#e53e3e" onclick="deleteDeworm('\${d.id}')">🗑</button>
+          </div>
+        </div>
+      </div>
+    \`).join('') + '</div>';
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+function openDewormModal() {
+  const today = new Date().toISOString().slice(0, 10);
+  modal('🐛 บันทึกถ่ายพยาธิ', \`
+    <div class="field"><label>วันที่ถ่ายพยาธิ *</label><input type="date" name="dewormingDate" value="\${today}" required></div>
+    <div class="field"><label>วันนัดครั้งต่อไป</label><input type="date" name="nextDueDate"></div>
+    <div class="field"><label>ชื่อยา/ผลิตภัณฑ์</label><input name="productName" placeholder="เช่น Drontal, Milbemax"></div>
+    <div class="field"><label>ขนาดที่ให้</label><input name="dose" placeholder="เช่น 1 เม็ด, 0.5 ml"></div>
+    <div class="field"><label>น้ำหนักวันที่ถ่าย (kg)</label><input type="number" name="weightAtTime" step="0.1" min="0"></div>
+    <div class="field"><label>คลินิก</label><input name="clinicName"></div>
+    <div class="field"><label>สัตวแพทย์</label><input name="veterinarianName"></div>
+    <div class="field"><label>หมายเหตุ</label><textarea name="notes" rows="2"></textarea></div>
+  \`, async (f) => {
+    const body = { dewormingDate: f.get('dewormingDate') };
+    ['nextDueDate', 'productName', 'dose', 'clinicName', 'veterinarianName', 'notes'].forEach(k => { if (f.get(k)) body[k] = f.get(k); });
+    if (f.get('weightAtTime')) body['weightAtTime'] = parseFloat(f.get('weightAtTime'));
+    await api('/api/cats/' + CURRENT_CAT.id + '/dewormings', { method: 'POST', body: JSON.stringify(body) });
+    toast('บันทึกถ่ายพยาธิสำเร็จ');
+    loadDewormings();
+  });
+}
+
+async function deleteDeworm(id) {
+  if (!confirm('ลบบันทึกการถ่ายพยาธินี้?')) return;
+  try {
+    await api('/api/cats/' + CURRENT_CAT.id + '/dewormings/' + id, { method: 'DELETE' });
+    toast('ลบแล้ว'); loadDewormings();
+  } catch (err) { toast(err.message, 'error'); }
 }
 
 function openMedModal() {
