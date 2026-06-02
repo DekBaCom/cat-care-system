@@ -159,6 +159,34 @@ label{display:block;font-size:.85rem;font-weight:600;color:#4a5568;margin-bottom
 .tl-month{font-size:.85rem;font-weight:700;color:#a0aec0;margin:1.5rem 0 .8rem;text-transform:uppercase;letter-spacing:.1em}
 .tl-month:first-child{margin-top:0}
 
+.exp-summary{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.7rem;margin-bottom:1.2rem}
+.exp-stat{background:linear-gradient(135deg,#667eea,#764ba2);color:white;padding:1rem;border-radius:12px}
+.exp-stat-label{font-size:.7rem;opacity:.85;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.3rem}
+.exp-stat-value{font-size:1.5rem;font-weight:700}
+.exp-bar-chart{background:#f7fafc;border-radius:12px;padding:1.2rem;margin-bottom:1.2rem}
+.exp-bars{display:flex;align-items:flex-end;gap:.4rem;height:160px;margin-top:1rem;padding-bottom:.3rem;border-bottom:2px solid #e2e8f0}
+.exp-bar-col{flex:1;display:flex;flex-direction:column;align-items:center;gap:.3rem}
+.exp-bar{width:100%;max-width:36px;background:linear-gradient(to top,#667eea,#a78bfa);border-radius:6px 6px 0 0;min-height:2px;transition:all .2s;position:relative}
+.exp-bar:hover{transform:scaleY(1.05);box-shadow:0 4px 12px rgba(102,126,234,.4)}
+.exp-bar-month{font-size:.7rem;color:#718096;font-weight:600;margin-top:.5rem}
+.exp-bar-val{font-size:.65rem;color:#a0aec0;height:14px}
+.exp-cat-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:.6rem;margin-bottom:1.2rem}
+.exp-cat{background:white;padding:.8rem;border-radius:10px;border-left:4px solid;display:flex;justify-content:space-between;align-items:center}
+.exp-cat-info{display:flex;flex-direction:column;gap:.1rem}
+.exp-cat-label{font-size:.85rem;color:#4a5568;font-weight:600}
+.exp-cat-count{font-size:.7rem;color:#a0aec0}
+.exp-cat-amount{font-size:1rem;font-weight:700;color:#2d3748}
+.exp-item{background:white;padding:.9rem 1rem;border-radius:10px;margin-bottom:.4rem;box-shadow:0 1px 2px rgba(0,0,0,.04);display:flex;justify-content:space-between;align-items:center;gap:.8rem;border-left:4px solid}
+.exp-item-info{flex:1;min-width:0}
+.exp-item-title{font-weight:700;color:#2d3748;font-size:.92rem;margin-bottom:.2rem;display:flex;align-items:center;gap:.4rem}
+.exp-item-cat{display:inline-block;padding:.1rem .5rem;border-radius:10px;font-size:.7rem;font-weight:700}
+.exp-item-desc{font-size:.8rem;color:#718096}
+.exp-item-date{font-size:.7rem;color:#a0aec0;margin-top:.2rem}
+.exp-item-amount{font-size:1.05rem;font-weight:700;color:#2d3748;white-space:nowrap}
+.exp-item .del{background:transparent;color:#a0aec0;font-size:.85rem;padding:.3rem .5rem;border-radius:4px;margin-left:.3rem}
+.exp-item .del:hover{background:#fed7d7;color:#742a2a}
+.exp-source-medical{font-size:.6rem;padding:.1rem .4rem;background:#fed7d7;color:#742a2a;border-radius:6px;font-weight:700}
+
 @media(max-width:640px){
   .main{padding:1rem}
   .auth-card{padding:1.5rem}
@@ -248,6 +276,7 @@ label{display:block;font-size:.85rem;font-weight:600;color:#4a5568;margin-bottom
         <button class="tab" data-tab="medical" onclick="switchDetailTab('medical')">🏥 ประวัติ</button>
         <button class="tab" data-tab="weight" onclick="switchDetailTab('weight')">⚖️ น้ำหนัก</button>
         <button class="tab" data-tab="timeline" onclick="switchDetailTab('timeline')">📅 Timeline</button>
+        <button class="tab" data-tab="expenses" onclick="switchDetailTab('expenses')">💰 ค่าใช้จ่าย</button>
       </div>
       <div id="tab-info" class="tab-content"></div>
       <div id="tab-vacc" class="tab-content hidden"></div>
@@ -255,6 +284,7 @@ label{display:block;font-size:.85rem;font-weight:600;color:#4a5568;margin-bottom
       <div id="tab-medical" class="tab-content hidden"></div>
       <div id="tab-weight" class="tab-content hidden"></div>
       <div id="tab-timeline" class="tab-content hidden"></div>
+      <div id="tab-expenses" class="tab-content hidden"></div>
     </div>
   </div>
 </div>
@@ -404,12 +434,169 @@ function closeDetail() {
 
 function switchDetailTab(tab) {
   document.querySelectorAll('#cat-detail .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-  ['info', 'vacc', 'meds', 'medical', 'weight', 'timeline'].forEach(t => document.getElementById('tab-' + t).classList.toggle('hidden', t !== tab));
+  ['info', 'vacc', 'meds', 'medical', 'weight', 'timeline', 'expenses'].forEach(t => document.getElementById('tab-' + t).classList.toggle('hidden', t !== tab));
   if (tab === 'vacc') loadVaccinations();
   if (tab === 'meds') loadMedications();
   if (tab === 'medical') loadMedicalHistory();
   if (tab === 'weight') loadWeightHistory();
   if (tab === 'timeline') loadTimeline();
+  if (tab === 'expenses') loadExpenses();
+}
+
+const EXPENSE_CATEGORIES = {
+  medical: { label: 'รักษาพยาบาล', icon: '🏥', color: '#f56565' },
+  vaccine: { label: 'วัคซีน', icon: '💉', color: '#48bb78' },
+  medication: { label: 'ยา', icon: '💊', color: '#4299e1' },
+  food: { label: 'อาหาร', icon: '🍽️', color: '#ed8936' },
+  accessories: { label: 'อุปกรณ์', icon: '🎀', color: '#9f7aea' },
+  grooming: { label: 'ดูแลขน/อาบน้ำ', icon: '✂️', color: '#38b2ac' },
+  insurance: { label: 'ประกัน', icon: '🛡️', color: '#667eea' },
+  other: { label: 'อื่นๆ', icon: '📦', color: '#a0aec0' },
+};
+
+async function loadExpenses() {
+  const el = document.getElementById('tab-expenses');
+  el.innerHTML = '<div class="empty">กำลังโหลด...</div>';
+  try {
+    const r = await api('/api/cats/' + CURRENT_CAT.id + '/expenses');
+    renderExpenses(r.data.expenses);
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+function formatBaht(n) {
+  return '฿' + n.toLocaleString('th-TH', { maximumFractionDigits: 2 });
+}
+
+function renderExpenses(expenses) {
+  const el = document.getElementById('tab-expenses');
+
+  const addBtn = '<div style="margin-bottom:1rem"><button class="btn btn-sm" onclick="openExpenseModal()">+ เพิ่มค่าใช้จ่าย</button></div>';
+
+  if (expenses.length === 0) {
+    el.innerHTML = addBtn + '<div class="empty"><div class="empty-icon">💰</div><p>ยังไม่มีบันทึกค่าใช้จ่าย</p></div>';
+    return;
+  }
+
+  const now = new Date();
+  const thisMonth = now.getFullYear() + '-' + String(now.getMonth() + 1).padStart(2, '0');
+  const thisYear = String(now.getFullYear());
+
+  const total = expenses.reduce((s, e) => s + e.amount, 0);
+  const monthTotal = expenses.filter(e => e.expenseDate.startsWith(thisMonth)).reduce((s, e) => s + e.amount, 0);
+  const yearTotal = expenses.filter(e => e.expenseDate.startsWith(thisYear)).reduce((s, e) => s + e.amount, 0);
+
+  // Monthly breakdown (last 6 months)
+  const monthlyMap = new Map();
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0');
+    monthlyMap.set(key, { label: ['ม.ค.','ก.พ.','มี.ค.','เม.ย.','พ.ค.','มิ.ย.','ก.ค.','ส.ค.','ก.ย.','ต.ค.','พ.ย.','ธ.ค.'][d.getMonth()], total: 0 });
+  }
+  for (const e of expenses) {
+    const key = e.expenseDate.slice(0, 7);
+    if (monthlyMap.has(key)) monthlyMap.get(key).total += e.amount;
+  }
+  const maxMonth = Math.max(...[...monthlyMap.values()].map(m => m.total), 1);
+
+  const categoryMap = new Map();
+  for (const e of expenses) {
+    if (!categoryMap.has(e.category)) categoryMap.set(e.category, { count: 0, total: 0 });
+    const c = categoryMap.get(e.category);
+    c.count++; c.total += e.amount;
+  }
+  const sortedCats = [...categoryMap.entries()].sort((a, b) => b[1].total - a[1].total);
+
+  let html = addBtn;
+
+  html += \`
+    <div class="exp-summary">
+      <div class="exp-stat"><div class="exp-stat-label">เดือนนี้</div><div class="exp-stat-value">\${formatBaht(monthTotal)}</div></div>
+      <div class="exp-stat"><div class="exp-stat-label">ปีนี้</div><div class="exp-stat-value">\${formatBaht(yearTotal)}</div></div>
+      <div class="exp-stat"><div class="exp-stat-label">รวมทั้งหมด</div><div class="exp-stat-value">\${formatBaht(total)}</div></div>
+    </div>
+  \`;
+
+  html += '<div class="exp-bar-chart"><div class="chart-title">📊 ค่าใช้จ่าย 6 เดือนล่าสุด</div><div class="exp-bars">';
+  for (const m of monthlyMap.values()) {
+    const h = m.total > 0 ? Math.max((m.total / maxMonth) * 100, 4) : 2;
+    html += \`
+      <div class="exp-bar-col">
+        <div class="exp-bar-val">\${m.total > 0 ? Math.round(m.total).toLocaleString() : ''}</div>
+        <div class="exp-bar" style="height:\${h}%" title="\${m.label}: \${formatBaht(m.total)}"></div>
+        <div class="exp-bar-month">\${m.label}</div>
+      </div>
+    \`;
+  }
+  html += '</div></div>';
+
+  html += '<div class="chart-title">📋 แยกตามหมวด</div><div class="exp-cat-grid">';
+  for (const [cat, { count, total: t }] of sortedCats) {
+    const info = EXPENSE_CATEGORIES[cat] || EXPENSE_CATEGORIES.other;
+    html += \`
+      <div class="exp-cat" style="border-left-color:\${info.color}">
+        <div class="exp-cat-info">
+          <div class="exp-cat-label">\${info.icon} \${info.label}</div>
+          <div class="exp-cat-count">\${count} รายการ</div>
+        </div>
+        <div class="exp-cat-amount">\${formatBaht(t)}</div>
+      </div>
+    \`;
+  }
+  html += '</div>';
+
+  html += '<div class="chart-title">📋 ประวัติทั้งหมด (' + expenses.length + ' รายการ)</div>';
+  for (const e of expenses) {
+    const info = EXPENSE_CATEGORIES[e.category] || EXPENSE_CATEGORIES.other;
+    html += \`
+      <div class="exp-item" style="border-left-color:\${info.color}">
+        <div class="exp-item-info">
+          <div class="exp-item-title">
+            \${info.icon}
+            <span class="exp-item-cat" style="background:\${info.color}22;color:\${info.color}">\${info.label}</span>
+            \${e.source === 'medical' ? '<span class="exp-source-medical">จากประวัติรักษา</span>' : ''}
+          </div>
+          \${e.description ? '<div class="exp-item-desc">' + escapeHtml(e.description) + '</div>' : ''}
+          <div class="exp-item-date">\${formatDate(e.expenseDate)}</div>
+        </div>
+        <div style="display:flex;align-items:center">
+          <div class="exp-item-amount">\${formatBaht(e.amount)}</div>
+          \${e.source === 'manual' ? '<button class="del" onclick="deleteExpense(\\'' + e.id + '\\')">🗑</button>' : ''}
+        </div>
+      </div>
+    \`;
+  }
+
+  el.innerHTML = html;
+}
+
+function openExpenseModal() {
+  const today = new Date().toISOString().slice(0, 10);
+  const opts = Object.entries(EXPENSE_CATEGORIES).map(([k, v]) => '<option value="' + k + '">' + v.icon + ' ' + v.label + '</option>').join('');
+  modal('💰 เพิ่มค่าใช้จ่าย', \`
+    <div class="field"><label>หมวด *</label><select name="category" required>\${opts}</select></div>
+    <div class="field"><label>จำนวนเงิน (บาท) *</label><input type="number" step="0.01" name="amount" required autofocus placeholder="0.00"></div>
+    <div class="field"><label>วันที่ *</label><input type="date" name="expenseDate" required value="\${today}"></div>
+    <div class="field"><label>รายละเอียด</label><input name="description" placeholder="เช่น Royal Canin 2 kg, ทำเล็บ"></div>
+  \`, async (f) => {
+    const body = {
+      amount: parseFloat(f.get('amount')),
+      category: f.get('category'),
+      expenseDate: f.get('expenseDate'),
+    };
+    if (f.get('description')) body.description = f.get('description');
+    await api('/api/cats/' + CURRENT_CAT.id + '/expenses', { method: 'POST', body: JSON.stringify(body) });
+    toast('บันทึกค่าใช้จ่ายสำเร็จ');
+    loadExpenses();
+  });
+}
+
+async function deleteExpense(id) {
+  if (!confirm('ลบรายการนี้?')) return;
+  try {
+    await api('/api/cats/' + CURRENT_CAT.id + '/expenses/' + id, { method: 'DELETE' });
+    toast('ลบสำเร็จ');
+    loadExpenses();
+  } catch (err) { toast(err.message, 'error'); }
 }
 
 let TIMELINE_EVENTS = [];
