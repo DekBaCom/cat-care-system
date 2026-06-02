@@ -8,6 +8,7 @@ import { vaccinationRoutes } from './routes/vaccinations';
 import { medicalRoutes } from './routes/medical';
 import { dietRoutes } from './routes/diet';
 import { dashboardRoutes } from './routes/dashboard';
+import { uploadRoutes } from './routes/upload';
 import { lineWebhook } from './webhooks/line';
 import { handleScheduled } from './scheduled/notifications';
 import { errorToResponse } from './utils/errors';
@@ -44,6 +45,18 @@ app.get('/api', (c) => c.json({
 }));
 
 app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString(), environment: c.env.ENVIRONMENT }));
+
+app.get('/photos/*', async (c) => {
+  const key = c.req.path.slice('/photos/'.length);
+  const obj = await c.env.IMAGES.get(key);
+  if (!obj) return c.notFound();
+  const headers = new Headers();
+  obj.writeHttpMetadata(headers);
+  headers.set('etag', obj.httpEtag);
+  headers.set('cache-control', 'public, max-age=31536000, immutable');
+  return new Response(obj.body, { headers });
+});
+
 app.route('/webhook/line', lineWebhook);
 app.route('/api/auth', authRoutes);
 app.route('/api', catRoutes);
@@ -51,6 +64,7 @@ app.route('/api', vaccinationRoutes);
 app.route('/api', medicalRoutes);
 app.route('/api', dietRoutes);
 app.route('/api', dashboardRoutes);
+app.route('/api', uploadRoutes);
 app.notFound((c) => c.json({ success: false, error: 'Not Found' }, 404));
 
 export default { fetch: app.fetch, scheduled: handleScheduled };

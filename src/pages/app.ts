@@ -64,7 +64,13 @@ label{display:block;font-size:.85rem;font-weight:600;color:#4a5568;margin-bottom
 .cat-card{background:#f7fafc;border-radius:10px;padding:1.2rem;cursor:pointer;transition:all .2s;border:2px solid transparent}
 .cat-card:hover{transform:translateY(-2px);box-shadow:0 8px 24px rgba(0,0,0,.08);border-color:#667eea}
 .cat-card.active{border-color:#667eea;background:#ebf4ff}
-.cat-avatar{width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;font-size:1.8rem;margin-bottom:.8rem}
+.cat-avatar{width:60px;height:60px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;font-size:1.8rem;margin-bottom:.8rem;overflow:hidden}
+.cat-avatar img{width:100%;height:100%;object-fit:cover}
+.cat-photo-large{width:120px;height:120px;border-radius:50%;background:linear-gradient(135deg,#667eea,#764ba2);display:flex;align-items:center;justify-content:center;font-size:3.5rem;margin:0 auto 1rem;overflow:hidden;position:relative;cursor:pointer;transition:transform .2s}
+.cat-photo-large:hover{transform:scale(1.03)}
+.cat-photo-large img{width:100%;height:100%;object-fit:cover}
+.cat-photo-large .upload-overlay{position:absolute;inset:0;background:rgba(0,0,0,.5);color:white;display:flex;align-items:center;justify-content:center;font-size:.85rem;opacity:0;transition:opacity .2s}
+.cat-photo-large:hover .upload-overlay{opacity:1}
 .cat-name{font-size:1.1rem;font-weight:700;color:#2d3748;margin-bottom:.3rem}
 .cat-meta{font-size:.85rem;color:#718096}
 .cat-badge{display:inline-block;padding:.15rem .5rem;border-radius:10px;font-size:.7rem;font-weight:600;margin-top:.5rem}
@@ -308,7 +314,7 @@ async function loadCats() {
     }
     container.innerHTML = '<div class="cats-grid">' + cats.map(c => \`
       <div class="cat-card" onclick="openCatDetail('\${c.id}')">
-        <div class="cat-avatar">\${c.gender === 'F' ? '🐱' : '😺'}</div>
+        <div class="cat-avatar">\${c.photoUrl ? '<img src="' + escapeHtml(c.photoUrl) + '" alt="">' : (c.gender === 'F' ? '🐱' : '😺')}</div>
         <div class="cat-name">\${escapeHtml(c.name)}</div>
         <div class="cat-meta">\${c.breed || '-'} · \${c.weightKg ? c.weightKg + ' kg' : ''}</div>
         <span class="cat-badge badge-\${c.healthStatus}">\${healthLabel(c.healthStatus)}</span>
@@ -353,6 +359,11 @@ function switchDetailTab(tab) {
 function renderInfoTab() {
   const c = CURRENT_CAT;
   document.getElementById('tab-info').innerHTML = \`
+    <div class="cat-photo-large" onclick="document.getElementById('photo-input').click()">
+      \${c.photoUrl ? '<img src="' + escapeHtml(c.photoUrl) + '" alt="">' : (c.gender === 'F' ? '🐱' : '😺')}
+      <div class="upload-overlay">📷 เปลี่ยนรูป</div>
+    </div>
+    <input type="file" id="photo-input" accept="image/*" style="display:none" onchange="uploadPhoto(this)">
     <div class="records-list">
       <div class="record"><div class="record-title">เพศ</div><div class="record-meta">\${c.gender === 'F' ? 'เพศเมีย' : c.gender === 'M' ? 'เพศผู้' : '-'}</div></div>
       <div class="record"><div class="record-title">สายพันธุ์</div><div class="record-meta">\${c.breed || '-'}</div></div>
@@ -360,10 +371,45 @@ function renderInfoTab() {
       <div class="record"><div class="record-title">น้ำหนัก</div><div class="record-meta">\${c.weightKg ? c.weightKg + ' kg' : '-'}</div></div>
       <div class="record"><div class="record-title">สถานะสุขภาพ</div><div class="record-meta">\${healthLabel(c.healthStatus)}</div></div>
     </div>
-    <div style="margin-top:1rem;display:flex;gap:.5rem">
+    <div style="margin-top:1rem;display:flex;gap:.5rem;flex-wrap:wrap">
+      \${c.photoUrl ? '<button class="btn btn-secondary btn-sm" onclick="removePhoto()">🗑 ลบรูป</button>' : ''}
       <button class="btn btn-danger btn-sm" onclick="deleteCat()">🗑 ลบข้อมูลแมว</button>
     </div>
   \`;
+}
+
+async function uploadPhoto(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { toast('ไฟล์ต้องไม่เกิน 5MB', 'error'); return; }
+
+  const formData = new FormData();
+  formData.append('photo', file);
+
+  try {
+    const res = await fetch('/api/cats/' + CURRENT_CAT.id + '/photo', {
+      method: 'POST',
+      headers: { Authorization: 'Bearer ' + TOKEN },
+      body: formData,
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || 'อัปโหลดไม่สำเร็จ');
+    CURRENT_CAT.photoUrl = data.data.photoUrl;
+    toast('อัปโหลดรูปสำเร็จ');
+    renderInfoTab();
+    loadCats();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function removePhoto() {
+  if (!confirm('ลบรูปแมวตัวนี้?')) return;
+  try {
+    await api('/api/cats/' + CURRENT_CAT.id + '/photo', { method: 'DELETE' });
+    CURRENT_CAT.photoUrl = null;
+    toast('ลบรูปสำเร็จ');
+    renderInfoTab();
+    loadCats();
+  } catch (err) { toast(err.message, 'error'); }
 }
 
 async function loadVaccinations() {
