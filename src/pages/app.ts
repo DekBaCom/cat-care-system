@@ -372,10 +372,61 @@ function renderInfoTab() {
       <div class="record"><div class="record-title">สถานะสุขภาพ</div><div class="record-meta">\${healthLabel(c.healthStatus)}</div></div>
     </div>
     <div style="margin-top:1rem;display:flex;gap:.5rem;flex-wrap:wrap">
+      <button class="btn btn-sm" onclick="openEditCatModal()">✏️ แก้ไขข้อมูล</button>
+      <button class="btn btn-secondary btn-sm" onclick="openWeightModal()">⚖️ บันทึกน้ำหนัก</button>
       \${c.photoUrl ? '<button class="btn btn-secondary btn-sm" onclick="removePhoto()">🗑 ลบรูป</button>' : ''}
       <button class="btn btn-danger btn-sm" onclick="deleteCat()">🗑 ลบข้อมูลแมว</button>
     </div>
   \`;
+}
+
+function openEditCatModal() {
+  const c = CURRENT_CAT;
+  modal('✏️ แก้ไขข้อมูล ' + escapeHtml(c.name), \`
+    <div class="field"><label>ชื่อแมว *</label><input name="name" required value="\${escapeHtml(c.name)}"></div>
+    <div class="field"><label>เพศ</label><select name="gender"><option value="">-</option><option value="F" \${c.gender === 'F' ? 'selected' : ''}>เพศเมีย</option><option value="M" \${c.gender === 'M' ? 'selected' : ''}>เพศผู้</option></select></div>
+    <div class="field"><label>สายพันธุ์</label><input name="breed" value="\${escapeHtml(c.breed || '')}"></div>
+    <div class="field"><label>วันเกิด</label><input type="date" name="dateOfBirth" value="\${c.dateOfBirth || ''}"></div>
+    <div class="field"><label>น้ำหนัก (kg)</label><input type="number" step="0.1" name="weightKg" value="\${c.weightKg || ''}"></div>
+    <div class="field"><label>สถานะสุขภาพ</label><select name="healthStatus"><option value="normal" \${c.healthStatus === 'normal' ? 'selected' : ''}>ปกติ</option><option value="treating" \${c.healthStatus === 'treating' ? 'selected' : ''}>กำลังรักษา</option><option value="caution" \${c.healthStatus === 'caution' ? 'selected' : ''}>ควรระวัง</option></select></div>
+    <div class="field"><label>โรคประจำตัว</label><textarea name="chronicDiseases" rows="2">\${escapeHtml(c.chronicDiseases || '')}</textarea></div>
+    <div class="field"><label>แพ้ยา</label><textarea name="drugAllergies" rows="2">\${escapeHtml(c.drugAllergies || '')}</textarea></div>
+    <div class="field"><label>อาหารที่ห้าม</label><textarea name="forbiddenFoods" rows="2">\${escapeHtml(c.forbiddenFoods || '')}</textarea></div>
+  \`, async (f) => {
+    const body = { name: f.get('name'), healthStatus: f.get('healthStatus') };
+    if (f.get('gender')) body.gender = f.get('gender');
+    if (f.get('breed')) body.breed = f.get('breed');
+    if (f.get('dateOfBirth')) body.dateOfBirth = f.get('dateOfBirth');
+    if (f.get('weightKg')) body.weightKg = parseFloat(f.get('weightKg'));
+    if (f.get('chronicDiseases')) body.chronicDiseases = f.get('chronicDiseases');
+    if (f.get('drugAllergies')) body.drugAllergies = f.get('drugAllergies');
+    if (f.get('forbiddenFoods')) body.forbiddenFoods = f.get('forbiddenFoods');
+    const r = await api('/api/cats/' + CURRENT_CAT.id, { method: 'PUT', body: JSON.stringify(body) });
+    CURRENT_CAT = r.data;
+    toast('บันทึกสำเร็จ');
+    renderInfoTab();
+    loadCats();
+    loadDashboard();
+  });
+}
+
+function openWeightModal() {
+  const c = CURRENT_CAT;
+  modal('⚖️ บันทึกน้ำหนัก ' + escapeHtml(c.name), \`
+    <div style="text-align:center;margin-bottom:1rem;padding:1rem;background:#f7fafc;border-radius:10px">
+      <div style="font-size:.85rem;color:#718096">น้ำหนักปัจจุบัน</div>
+      <div style="font-size:2rem;font-weight:700;color:#2d3748">\${c.weightKg ? c.weightKg + ' kg' : 'ยังไม่มีข้อมูล'}</div>
+    </div>
+    <div class="field"><label>น้ำหนักใหม่ (kg) *</label><input type="number" step="0.01" name="weightKg" required placeholder="3.5" value="\${c.weightKg || ''}" autofocus></div>
+  \`, async (f) => {
+    const weightKg = parseFloat(f.get('weightKg'));
+    if (isNaN(weightKg) || weightKg <= 0) throw new Error('น้ำหนักต้องเป็นตัวเลขมากกว่า 0');
+    const r = await api('/api/cats/' + CURRENT_CAT.id, { method: 'PUT', body: JSON.stringify({ weightKg }) });
+    CURRENT_CAT = r.data;
+    toast('บันทึกน้ำหนักสำเร็จ (' + weightKg + ' kg)');
+    renderInfoTab();
+    loadCats();
+  });
 }
 
 async function uploadPhoto(input) {
