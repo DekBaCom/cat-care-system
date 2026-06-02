@@ -797,8 +797,7 @@ function buildLineShareMessage(url) {
   if (c.drugAllergies) msg += '━━━━━━━━━━━━━━━' + NL + '⚠️ แพ้ยา: ' + c.drugAllergies + NL;
   if (c.chronicDiseases) msg += '🏥 โรคประจำตัว: ' + c.chronicDiseases + NL;
   if (c.forbiddenFoods) msg += '🚫 อาหารที่ห้าม: ' + c.forbiddenFoods + NL;
-  msg += '━━━━━━━━━━━━━━━' + NL;
-  msg += '🔗 ดูประวัติเต็ม:' + NL + url;
+  msg += '━━━━━━━━━━━━━━━';
   return msg;
 }
 
@@ -923,7 +922,10 @@ async function loadDashboard() {
             <div style="font-weight:600;font-size:.9rem;color:#2d3748">\${escapeHtml(v.cat_name)} — \${escapeHtml(v.vaccine_name)}</div>
             <div style="font-size:.78rem;color:#718096;margin-top:.1rem">นัดฉีด: \${v.expiration_date}\${v.clinic_name ? ' · ' + escapeHtml(v.clinic_name) : ''}</div>
           </div>
-          <span style="font-size:.75rem;font-weight:700;padding:.25rem .6rem;border-radius:20px;\${badgeStyle}">\${badge}</span>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.3rem">
+            <span style="font-size:.75rem;font-weight:700;padding:.25rem .6rem;border-radius:20px;\${badgeStyle}">\${badge}</span>
+            <button class="btn btn-sm" style="font-size:.72rem;padding:.25rem .6rem;background:#48bb78;color:white;border:none;white-space:nowrap" onclick="openVaccinatedModal('\${v.cat_id}','\${escapeHtml(v.vaccine_name)}','\${escapeHtml(v.cat_name)}')">✅ ฉีดแล้ว</button>
+          </div>
         </div>
       \`;
     }).join('');
@@ -1487,7 +1489,10 @@ async function loadVaccinations() {
             <div class="record-meta">ฉีดวันที่ \${v.vaccinationDate} \${v.expirationDate ? '· นัดฉีดครั้งต่อไป: ' + v.expirationDate : ''}</div>
             \${v.clinicName ? '<div class="record-meta">📍 ' + escapeHtml(v.clinicName) + '</div>' : ''}
           </div>
-          \${v.expirationDate ? '<a href="' + buildGCalUrl('นัดฉีดวัคซีน ' + v.vaccineName + ' (' + CURRENT_CAT.name + ')', v.expirationDate, 'ถึงเวลาฉีดวัคซีน ' + v.vaccineName + '\\nแมว: ' + CURRENT_CAT.name + (v.clinicName ? '\\nคลินิก: ' + v.clinicName : '')) + '" target="_blank" class="btn btn-sm btn-secondary" style="white-space:nowrap;font-size:.75rem;padding:.3rem .6rem" title="เพิ่มเข้า Google Calendar">📅 Calendar</a>' : ''}
+          <div style="display:flex;flex-direction:column;gap:.3rem;align-items:flex-end">
+            <button class="btn btn-sm" style="font-size:.72rem;padding:.25rem .6rem;background:#48bb78;color:white;border:none;white-space:nowrap" onclick="openVaccinatedModal('\${CURRENT_CAT.id}','\${escapeHtml(v.vaccineName)}','\${escapeHtml(CURRENT_CAT.name)}')">✅ ฉีดแล้ว</button>
+            \${v.expirationDate ? '<a href="' + buildGCalUrl('นัดฉีดวัคซีน ' + v.vaccineName + ' (' + CURRENT_CAT.name + ')', v.expirationDate, 'ถึงเวลาฉีดวัคซีน ' + v.vaccineName + '\\nแมว: ' + CURRENT_CAT.name + (v.clinicName ? '\\nคลินิก: ' + v.clinicName : '')) + '" target="_blank" class="btn btn-sm btn-secondary" style="white-space:nowrap;font-size:.75rem;padding:.3rem .6rem" title="เพิ่มเข้า Google Calendar">📅 Calendar</a>' : ''}
+          </div>
         </div>
       </div>
     \`).join('') + '</div>';
@@ -1596,6 +1601,27 @@ function openVaccModal() {
     await api('/api/cats/' + CURRENT_CAT.id + '/vaccinations', { method: 'POST', body: JSON.stringify(body) });
     toast('เพิ่มวัคซีนสำเร็จ');
     loadVaccinations(); loadDashboard();
+  });
+}
+
+function openVaccinatedModal(catId, vaccineName, catName) {
+  const today = new Date().toISOString().slice(0, 10);
+  modal('✅ บันทึกการฉีดวัคซีน — ' + catName, \`
+    <div style="background:#f0fff4;border-radius:8px;padding:.8rem;margin-bottom:1rem;font-size:.85rem;color:#276749">
+      💉 <strong>\${escapeHtml(vaccineName)}</strong>
+    </div>
+    <div class="field"><label>วันที่ฉีด *</label><input type="date" name="vaccinationDate" value="\${today}" required></div>
+    <div class="field"><label>วันนัดฉีดครั้งต่อไป</label><input type="date" name="expirationDate"></div>
+    <div class="field"><label>คลินิก</label><input name="clinicName"></div>
+    <div class="field"><label>สัตวแพทย์</label><input name="veterinarianName"></div>
+    <div class="field"><label>เลข Lot</label><input name="lotNumber"></div>
+  \`, async (f) => {
+    const body = { vaccineName, vaccinationDate: f.get('vaccinationDate') };
+    ['expirationDate', 'clinicName', 'veterinarianName', 'lotNumber'].forEach(k => { if (f.get(k)) body[k] = f.get(k); });
+    await api('/api/cats/' + catId + '/vaccinations', { method: 'POST', body: JSON.stringify(body) });
+    toast('บันทึกการฉีดวัคซีนสำเร็จ ✅');
+    loadDashboard();
+    if (CURRENT_CAT && CURRENT_CAT.id === catId) loadVaccinations();
   });
 }
 
