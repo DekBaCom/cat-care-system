@@ -431,8 +431,48 @@ async function handleGoogleCredential(response) {
 
 let GOOGLE_CLIENT_ID = '';
 
+function detectInAppBrowser() {
+  const ua = navigator.userAgent || '';
+  const patterns = [
+    { name: 'LINE', regex: /\\bLine\\//i },
+    { name: 'Facebook', regex: /\\bFBAN|FBAV\\b/i },
+    { name: 'Instagram', regex: /\\bInstagram\\b/i },
+    { name: 'Messenger', regex: /\\bMessenger\\b/i },
+    { name: 'TikTok', regex: /\\bMusical_ly|Bytedance\\b/i },
+    { name: 'WeChat', regex: /\\bMicroMessenger\\b/i },
+  ];
+  for (const p of patterns) if (p.regex.test(ua)) return p.name;
+  return null;
+}
+
+function showInAppBrowserWarning(browserName) {
+  const wrap = document.querySelector('.gbtn-wrap');
+  if (!wrap) return;
+  const isIos = /iPad|iPhone|iPod/.test(navigator.userAgent);
+  const browserHint = isIos ? 'Safari' : 'Chrome';
+  wrap.innerHTML = \`
+    <div style="background:#fef5e7;border:1px solid #f6ad55;border-radius:10px;padding:1rem;text-align:left;width:100%">
+      <div style="font-weight:700;color:#7c4a02;margin-bottom:.5rem;font-size:.95rem">⚠️ Google บล็อก in-app browser</div>
+      <div style="font-size:.85rem;color:#7c4a02;line-height:1.6">
+        คุณเปิดผ่าน <b>\${browserName}</b> ซึ่ง Google ไม่อนุญาตให้ login<br><br>
+        <b>วิธีแก้:</b><br>
+        แตะปุ่ม "⋮" (3 จุด) ด้านบน → เลือก <b>"เปิดในเบราว์เซอร์"</b> (Open in browser) เพื่อเปิดในแอป \${browserHint}
+        <br><br>
+        หรือคัดลอกลิงก์ <code style="background:#fed7aa;padding:.1rem .3rem;border-radius:4px">cat-care.ilikeit.info</code> ไปวางในแอป \${browserHint}
+      </div>
+    </div>
+  \`;
+}
+
 async function initGoogleSignIn() {
   try {
+    // Check for in-app browsers first (LINE, Facebook, etc. block Google login)
+    const inApp = detectInAppBrowser();
+    if (inApp) {
+      showInAppBrowserWarning(inApp);
+      return;
+    }
+
     const cfg = await (await fetch('/api/config')).json();
     GOOGLE_CLIENT_ID = cfg.googleClientId;
 
@@ -442,7 +482,7 @@ async function initGoogleSignIn() {
     }
 
     if (!window.google?.accounts?.id) {
-      document.querySelector('.gbtn-wrap').innerHTML = renderManualGoogleBtn();
+      document.querySelector('.gbtn-wrap').innerHTML = '<div style="font-size:.85rem;color:#f56565;text-align:center;padding:.8rem;background:#fed7d7;border-radius:8px">⚠️ โหลด Google ไม่สำเร็จ<br>ลองเปลี่ยน WiFi/4G แล้วรีเฟรชใหม่</div>';
       return;
     }
 
@@ -469,77 +509,24 @@ async function initGoogleSignIn() {
       width: btnWidth,
     });
 
-    // Add manual fallback below the official button (useful if button fails on some Android)
-    const wrap = document.querySelector('.gbtn-wrap');
-    if (wrap && !document.getElementById('g-manual')) {
-      const manual = document.createElement('button');
-      manual.id = 'g-manual';
-      manual.type = 'button';
-      manual.className = 'btn btn-secondary btn-sm';
-      manual.style.cssText = 'margin-top:.7rem;font-size:.8rem';
-      manual.textContent = 'ปุ่ม Google ไม่ขึ้น? คลิกที่นี่';
-      manual.onclick = () => triggerGoogleSignIn();
-      wrap.appendChild(manual);
-    }
+    // Diagnostic: shown only if button hasn't rendered children after 2s
+    setTimeout(() => {
+      const btnEl = document.getElementById('g_id_signin');
+      if (btnEl && btnEl.children.length === 0) {
+        const wrap = document.querySelector('.gbtn-wrap');
+        if (wrap && !document.getElementById('g-help')) {
+          const help = document.createElement('div');
+          help.id = 'g-help';
+          help.style.cssText = 'margin-top:.7rem;padding:.7rem;background:#fef5e7;border-radius:8px;font-size:.8rem;color:#7c4a02;line-height:1.5';
+          help.innerHTML = '⚠️ ปุ่ม Google ไม่ขึ้น — สาเหตุที่พบบ่อย:<br>• Third-party cookies ถูกปิด<br>• Ad-blocker ปิดกั้น<br>• โดเมนยังไม่ propagate ใน Google Console (รอ 5-60 นาที)';
+          wrap.appendChild(help);
+        }
+      }
+    }, 2500);
   } catch (err) {
     console.error('Google init failed', err);
     const el = document.querySelector('.gbtn-wrap');
-    if (el) el.innerHTML = renderManualGoogleBtn();
-  }
-}
-
-function renderManualGoogleBtn() {
-  return \`
-    <button class="btn btn-block" onclick="triggerGoogleSignIn()" style="background:white;color:#3c4043;border:1px solid #dadce0;display:flex;align-items:center;justify-content:center;gap:.6rem">
-      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/><path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2.04a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"/><path fill="#FBBC05" d="M4.5 10.48a4.8 4.8 0 0 1 0-3.04V5.37H1.83a8 8 0 0 0 0 7.18l2.67-2.07z"/><path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.37L4.5 7.44a4.77 4.77 0 0 1 4.48-3.26z"/></svg>
-      เข้าสู่ระบบด้วย Google
-    </button>
-  \`;
-}
-
-function triggerGoogleSignIn() {
-  if (!window.google?.accounts?.id) {
-    authMsg('โหลด Google ไม่สำเร็จ ลองรีเฟรชหน้าใหม่', 'error');
-    return;
-  }
-  try {
-    window.google.accounts.id.prompt((notification) => {
-      if (notification.isNotDisplayed?.() || notification.isSkippedMoment?.()) {
-        // Prompt blocked — fall back to OAuth code flow redirect
-        const redirectUri = window.location.origin + '/';
-        const url = 'https://accounts.google.com/o/oauth2/v2/auth?'
-          + 'client_id=' + encodeURIComponent(GOOGLE_CLIENT_ID)
-          + '&redirect_uri=' + encodeURIComponent(redirectUri)
-          + '&response_type=id_token'
-          + '&scope=openid%20email%20profile'
-          + '&nonce=' + Math.random().toString(36).slice(2)
-          + '&prompt=select_account';
-        window.location.href = url;
-      }
-    });
-  } catch (err) {
-    console.error('Google prompt failed', err);
-    authMsg('เปิดหน้า Google ไม่สำเร็จ: ' + err.message, 'error');
-  }
-}
-
-// Handle redirect-mode return — Google sends ID token in URL fragment
-async function checkGoogleRedirectReturn() {
-  if (!window.location.hash.includes('id_token=')) return false;
-  const params = new URLSearchParams(window.location.hash.slice(1));
-  const idToken = params.get('id_token');
-  if (!idToken) return false;
-  // Clean URL
-  history.replaceState({}, '', window.location.pathname);
-  try {
-    const r = await api('/api/auth/google', { method: 'POST', body: JSON.stringify({ idToken }) });
-    TOKEN = r.data.token; USER = r.data.user;
-    localStorage.setItem('token', TOKEN); localStorage.setItem('user', JSON.stringify(USER));
-    showApp();
-    return true;
-  } catch (err) {
-    authMsg('Google login ล้มเหลว: ' + err.message, 'error');
-    return false;
+    if (el) el.innerHTML = '<div style="font-size:.85rem;color:#f56565;text-align:center;padding:.8rem;background:#fed7d7;border-radius:8px">⚠️ โหลด Google ไม่สำเร็จ: ' + escapeHtml(err.message) + '</div>';
   }
 }
 
@@ -1295,14 +1282,11 @@ function loadGoogleScript() {
 }
 
 // Initial load
-(async function init() {
-  if (await checkGoogleRedirectReturn()) return;
-  if (TOKEN && USER) {
-    showApp();
-  } else {
-    loadGoogleScript().then(initGoogleSignIn);
-  }
-})();
+if (TOKEN && USER) {
+  showApp();
+} else {
+  loadGoogleScript().then(initGoogleSignIn);
+}
 </script>
 </body>
 </html>`;
