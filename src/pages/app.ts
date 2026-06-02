@@ -767,24 +767,25 @@ function buildLineShareMessage(url) {
   const genderLabel = c.gender === 'F' ? '♀ เพศเมีย' : c.gender === 'M' ? '♂ เพศผู้' : '';
   const statusLabel = { normal: '✅ ปกติ', treating: '🏥 กำลังรักษา', caution: '⚠️ ควรระวัง' }[c.healthStatus] || c.healthStatus;
 
-  let msg = '🐱 ประวัติสุขภาพแมว\n';
-  msg += '━━━━━━━━━━━━━━━\n';
-  msg += '📋 ' + c.name + '\n';
+  const NL = String.fromCharCode(10);
+  let msg = '🐱 ประวัติสุขภาพแมว' + NL;
+  msg += '━━━━━━━━━━━━━━━' + NL;
+  msg += '📋 ' + c.name + NL;
   if (genderLabel) msg += genderLabel;
   if (c.breed) msg += (genderLabel ? ' · ' : '') + c.breed;
-  if (genderLabel || c.breed) msg += '\n';
+  if (genderLabel || c.breed) msg += NL;
   if (c.dateOfBirth) {
     const months = Math.floor((Date.now() - new Date(c.dateOfBirth).getTime()) / (1000 * 60 * 60 * 24 * 30.44));
     const y = Math.floor(months / 12); const m = months % 12;
-    msg += '🎂 อายุ ' + (y > 0 ? y + ' ปี ' : '') + (m > 0 ? m + ' เดือน' : '') + '\n';
+    msg += '🎂 อายุ ' + (y > 0 ? y + ' ปี ' : '') + (m > 0 ? m + ' เดือน' : '') + NL;
   }
-  if (c.weightKg) msg += '⚖️ น้ำหนัก ' + c.weightKg + ' kg\n';
-  msg += '💊 สถานะ ' + statusLabel + '\n';
-  if (c.drugAllergies) msg += '━━━━━━━━━━━━━━━\n⚠️ แพ้ยา: ' + c.drugAllergies + '\n';
-  if (c.chronicDiseases) msg += '🏥 โรคประจำตัว: ' + c.chronicDiseases + '\n';
-  if (c.forbiddenFoods) msg += '🚫 อาหารที่ห้าม: ' + c.forbiddenFoods + '\n';
-  msg += '━━━━━━━━━━━━━━━\n';
-  msg += '🔗 ดูประวัติเต็ม:\n' + url;
+  if (c.weightKg) msg += '⚖️ น้ำหนัก ' + c.weightKg + ' kg' + NL;
+  msg += '💊 สถานะ ' + statusLabel + NL;
+  if (c.drugAllergies) msg += '━━━━━━━━━━━━━━━' + NL + '⚠️ แพ้ยา: ' + c.drugAllergies + NL;
+  if (c.chronicDiseases) msg += '🏥 โรคประจำตัว: ' + c.chronicDiseases + NL;
+  if (c.forbiddenFoods) msg += '🚫 อาหารที่ห้าม: ' + c.forbiddenFoods + NL;
+  msg += '━━━━━━━━━━━━━━━' + NL;
+  msg += '🔗 ดูประวัติเต็ม:' + NL + url;
   return msg;
 }
 
