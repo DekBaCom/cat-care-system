@@ -33,8 +33,6 @@ label{display:block;font-size:.85rem;font-weight:600;color:#4a5568;margin-bottom
 .auth-logo p{color:#718096;font-size:.9rem;margin-top:.3rem}
 .auth-msg{padding:.7rem;border-radius:8px;font-size:.85rem;margin-bottom:1rem;display:none}
 .gbtn-wrap{display:flex;justify-content:center;margin-bottom:1.25rem}
-.divider{display:flex;align-items:center;gap:.7rem;color:#a0aec0;font-size:.75rem;text-transform:uppercase;letter-spacing:.1em;margin:1.25rem 0;font-weight:600}
-.divider::before,.divider::after{content:'';flex:1;height:1px;background:#e2e8f0}
 .auth-msg.show{display:block}
 .auth-msg.error{background:#fed7d7;color:#742a2a}
 .auth-msg.success{background:#c6f6d5;color:#22543d}
@@ -308,19 +306,6 @@ input,select,textarea{font-size:16px} /* Prevents iOS zoom on focus */
       <div id="g_id_signin"></div>
     </div>
 
-    <div class="divider">หรือเข้าสู่ระบบด้วยอีเมล</div>
-
-    <form id="login-form" onsubmit="handleLogin(event)">
-      <div class="field">
-        <label>อีเมล</label>
-        <input type="email" name="email" required placeholder="you@example.com">
-      </div>
-      <div class="field">
-        <label>รหัสผ่าน</label>
-        <input type="password" name="password" required minlength="8" placeholder="••••••••">
-      </div>
-      <button type="submit" class="btn btn-block" id="login-btn">เข้าสู่ระบบ</button>
-    </form>
   </div>
 </div>
 
@@ -403,20 +388,6 @@ function toast(msg, type = 'success') {
 function authMsg(text, type) {
   const el = document.getElementById('auth-msg');
   el.textContent = text; el.className = 'auth-msg show ' + type;
-}
-
-async function handleLogin(e) {
-  e.preventDefault();
-  const btn = document.getElementById('login-btn');
-  btn.disabled = true; btn.innerHTML = '<span class="spinner"></span>กำลังเข้าสู่ระบบ...';
-  const f = new FormData(e.target);
-  try {
-    const r = await api('/api/auth/login', { method: 'POST', body: JSON.stringify({ email: f.get('email'), password: f.get('password') }) });
-    TOKEN = r.data.token; USER = r.data.user;
-    localStorage.setItem('token', TOKEN); localStorage.setItem('user', JSON.stringify(USER));
-    showApp();
-  } catch (err) { authMsg(err.message, 'error'); }
-  finally { btn.disabled = false; btn.textContent = 'เข้าสู่ระบบ'; }
 }
 
 async function handleGoogleCredential(response) {
