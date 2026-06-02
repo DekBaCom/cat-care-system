@@ -801,7 +801,9 @@ function renderShareModalContent(active, url) {
   const el = document.getElementById('info-modal-body');
   if (!el) return;
   if (active && url) {
-    const lineUrl = 'https://line.me/R/msg/text/' + encodeURIComponent(url);
+    const msg = buildLineShareMessage(url);
+    window.__pendingShareMsg = msg;
+    const lineUrl = 'https://line.me/R/msg/text/' + encodeURIComponent(msg);
     el.innerHTML = \`
       <div style="background:#f0fff4;border-radius:10px;padding:.8rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:.7rem">
         <span style="font-size:1.3rem">✅</span>
@@ -812,15 +814,15 @@ function renderShareModalContent(active, url) {
       </div>
 
       <div style="margin-bottom:1rem">
-        <div style="font-size:.78rem;font-weight:600;color:#4a5568;margin-bottom:.4rem">Link ประวัติแมว</div>
-        <div style="background:#f7fafc;border-radius:8px;padding:.7rem 1rem;font-size:.8rem;color:#2b6cb0;border:1px solid #bee3f8;word-break:break-all">\${escapeHtml(url)}</div>
+        <div style="font-size:.78rem;font-weight:600;color:#4a5568;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.04em">ตัวอย่างข้อความ</div>
+        <div style="background:#f7fafc;border-radius:8px;padding:.8rem 1rem;font-size:.8rem;color:#2d3748;white-space:pre-line;line-height:1.7;border:1px solid #e2e8f0">\${escapeHtml(msg)}</div>
       </div>
 
       <div style="display:flex;flex-direction:column;gap:.55rem">
         <a class="btn btn-block" href="\${escapeHtml(lineUrl)}" target="_blank" style="background:#06C755;text-align:center;text-decoration:none;display:block;padding:.75rem 1.5rem;border-radius:8px;color:white;font-weight:600;font-size:1rem">
           📱 ส่งหาหมอผ่าน LINE
         </a>
-        <button class="btn btn-block btn-secondary" onclick="navigator.clipboard.writeText('\${escapeHtml(url)}').then(()=>toast('คัดลอก Link แล้ว'))">📋 คัดลอก Link</button>
+        <button class="btn btn-block btn-secondary" onclick="copyPendingShareMsg()">📋 คัดลอกข้อความ</button>
         <button class="btn btn-block" onclick="openSharePage('\${escapeHtml(url)}')" style="background:#4299e1">🌐 เปิดหน้าข้อมูล</button>
         <button class="btn btn-secondary btn-block btn-sm" style="color:#e53e3e;border-color:#e53e3e;margin-top:.2rem" onclick="revokeShareLink()">🗑 ยกเลิก Link นี้</button>
       </div>
