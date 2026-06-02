@@ -762,23 +762,59 @@ async function openShareModal() {
   } catch (err) { toast(err.message, 'error'); }
 }
 
+function buildLineShareMessage(url) {
+  const c = CURRENT_CAT;
+  const genderLabel = c.gender === 'F' ? '♀ เพศเมีย' : c.gender === 'M' ? '♂ เพศผู้' : '';
+  const statusLabel = { normal: '✅ ปกติ', treating: '🏥 กำลังรักษา', caution: '⚠️ ควรระวัง' }[c.healthStatus] || c.healthStatus;
+
+  let msg = '🐱 ประวัติสุขภาพแมว\n';
+  msg += '━━━━━━━━━━━━━━━\n';
+  msg += '📋 ' + c.name + '\n';
+  if (genderLabel) msg += genderLabel;
+  if (c.breed) msg += (genderLabel ? ' · ' : '') + c.breed;
+  if (genderLabel || c.breed) msg += '\n';
+  if (c.dateOfBirth) {
+    const months = Math.floor((Date.now() - new Date(c.dateOfBirth).getTime()) / (1000 * 60 * 60 * 24 * 30.44));
+    const y = Math.floor(months / 12); const m = months % 12;
+    msg += '🎂 อายุ ' + (y > 0 ? y + ' ปี ' : '') + (m > 0 ? m + ' เดือน' : '') + '\n';
+  }
+  if (c.weightKg) msg += '⚖️ น้ำหนัก ' + c.weightKg + ' kg\n';
+  msg += '💊 สถานะ ' + statusLabel + '\n';
+  if (c.drugAllergies) msg += '━━━━━━━━━━━━━━━\n⚠️ แพ้ยา: ' + c.drugAllergies + '\n';
+  if (c.chronicDiseases) msg += '🏥 โรคประจำตัว: ' + c.chronicDiseases + '\n';
+  if (c.forbiddenFoods) msg += '🚫 อาหารที่ห้าม: ' + c.forbiddenFoods + '\n';
+  msg += '━━━━━━━━━━━━━━━\n';
+  msg += '🔗 ดูประวัติเต็ม:\n' + url;
+  return msg;
+}
+
 function renderShareModalContent(active, url) {
   const el = document.getElementById('info-modal-body');
   if (!el) return;
   if (active && url) {
-    const lineUrl = 'https://social-plugins.line.me/lineit/share?url=' + encodeURIComponent(url);
+    const msg = buildLineShareMessage(url);
+    const lineUrl = 'https://line.me/R/msg/text/' + encodeURIComponent(msg);
     el.innerHTML = \`
-      <div style="background:#f0fff4;border-radius:10px;padding:1rem;margin-bottom:1rem;text-align:center">
-        <div style="font-size:1.5rem">✅</div>
-        <div style="font-weight:700;color:#22543d;margin-top:.3rem">Link พร้อมแชร์แล้ว</div>
-        <div style="font-size:.8rem;color:#276749;margin-top:.2rem">หมอสามารถเปิดดูได้โดยไม่ต้อง Login</div>
+      <div style="background:#f0fff4;border-radius:10px;padding:.8rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:.7rem">
+        <span style="font-size:1.3rem">✅</span>
+        <div>
+          <div style="font-weight:700;color:#22543d;font-size:.9rem">Link พร้อมแชร์แล้ว</div>
+          <div style="font-size:.75rem;color:#276749">หมอเปิดดูได้โดยไม่ต้อง Login</div>
+        </div>
       </div>
-      <div style="background:#f7fafc;border-radius:8px;padding:.7rem .9rem;word-break:break-all;font-size:.82rem;color:#4a5568;margin-bottom:1rem;border:1px solid #e2e8f0">\${escapeHtml(url)}</div>
-      <div style="display:flex;flex-direction:column;gap:.6rem">
-        <button class="btn btn-block" onclick="copyShareLink('\${escapeHtml(url)}')">📋 คัดลอก Link</button>
-        <a class="btn btn-block" href="\${escapeHtml(lineUrl)}" target="_blank" style="background:#06C755;text-align:center;text-decoration:none;display:block;padding:.75rem 1.5rem;border-radius:8px;color:white;font-weight:600">📱 ส่งผ่าน LINE</a>
-        <button class="btn btn-block" onclick="openSharePage('\${escapeHtml(url)}')" style="background:#4299e1">🌐 เปิดหน้าแสดงข้อมูล</button>
-        <button class="btn btn-secondary btn-block" onclick="revokeShareLink()" style="margin-top:.3rem">🗑 ยกเลิก Link นี้</button>
+
+      <div style="margin-bottom:1rem">
+        <div style="font-size:.78rem;font-weight:600;color:#4a5568;margin-bottom:.4rem;text-transform:uppercase;letter-spacing:.04em">ตัวอย่างข้อความที่จะส่ง</div>
+        <div style="background:#f7fafc;border-radius:8px;padding:.8rem 1rem;font-size:.8rem;color:#2d3748;white-space:pre-line;line-height:1.7;border:1px solid #e2e8f0;max-height:180px;overflow-y:auto">\${escapeHtml(msg)}</div>
+      </div>
+
+      <div style="display:flex;flex-direction:column;gap:.55rem">
+        <a class="btn btn-block" href="\${escapeHtml(lineUrl)}" target="_blank" style="background:#06C755;text-align:center;text-decoration:none;display:block;padding:.75rem 1.5rem;border-radius:8px;color:white;font-weight:600;font-size:1rem">
+          📱 ส่งหาหมอผ่าน LINE
+        </a>
+        <button class="btn btn-block btn-secondary" onclick="copyShareMsg(\`\${escapeHtml(msg).replace(/\`/g,'')}\`)">📋 คัดลอกข้อความ</button>
+        <button class="btn btn-block" onclick="openSharePage('\${escapeHtml(url)}')" style="background:#4299e1">🌐 เปิดหน้าข้อมูล</button>
+        <button class="btn btn-secondary btn-block btn-sm" style="color:#e53e3e;border-color:#e53e3e;margin-top:.2rem" onclick="revokeShareLink()">🗑 ยกเลิก Link นี้</button>
       </div>
     \`;
   } else {
@@ -787,16 +823,19 @@ function renderShareModalContent(active, url) {
         <div style="font-size:.9rem;color:#2b6cb0;font-weight:600;margin-bottom:.4rem">📋 ข้อมูลที่หมอจะเห็น:</div>
         <div style="font-size:.82rem;color:#4a5568;line-height:1.7">
           ✅ ข้อมูลพื้นฐาน (ชื่อ เพศ สายพันธุ์ น้ำหนัก)<br>
-          ✅ ประวัติวัคซีน<br>
+          ✅ ประวัติวัคซีน (วันหมดอายุ)<br>
           ✅ ยาที่กำลังได้รับ<br>
           ✅ ประวัติการรักษา<br>
-          ✅ โรคประจำตัว / แพ้ยา / อาหารต้องห้าม<br>
-          ✅ ข้อมูลอาหาร
+          ✅ โรคประจำตัว / แพ้ยา / อาหารต้องห้าม
         </div>
       </div>
       <button class="btn btn-block" onclick="generateShareLink()" id="gen-share-btn">🔗 สร้าง Share Link</button>
     \`;
   }
+}
+
+function copyShareMsg(msg) {
+  navigator.clipboard.writeText(msg).then(() => toast('คัดลอกข้อความแล้ว'));
 }
 
 async function generateShareLink() {
