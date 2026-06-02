@@ -6,7 +6,8 @@ export const appHtml = `<!DOCTYPE html>
 <title>Cat Care System</title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;color:#2d3748}
+html{-webkit-text-size-adjust:100%;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",sans-serif;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);min-height:100vh;color:#2d3748;-webkit-font-smoothing:antialiased;text-rendering:optimizeLegibility}
 .hidden{display:none!important}
 button{cursor:pointer;font-family:inherit;border:none;font-weight:600;transition:all .2s}
 button:disabled{opacity:.6;cursor:not-allowed}
@@ -187,10 +188,106 @@ label{display:block;font-size:.85rem;font-weight:600;color:#4a5568;margin-bottom
 .exp-item .del:hover{background:#fed7d7;color:#742a2a}
 .exp-source-medical{font-size:.6rem;padding:.1rem .4rem;background:#fed7d7;color:#742a2a;border-radius:6px;font-weight:700}
 
+/* === Touch & input improvements === */
+button,.tab,.tl-filter,.auth-tab{min-height:44px}
+.btn-sm{min-height:36px}
+input,select,textarea{font-size:16px} /* Prevents iOS zoom on focus */
+
+/* === Tablet (768px and up) === */
+@media(min-width:768px){
+  .main{padding:2rem;max-width:1100px}
+  .navbar{padding:1rem 2rem}
+  .section{padding:2rem}
+  .cats-grid{grid-template-columns:repeat(auto-fill,minmax(240px,1fr))}
+}
+
+/* === Desktop (1024px and up) === */
+@media(min-width:1024px){
+  .main{max-width:1200px;padding:2rem 3rem}
+  .summary{grid-template-columns:repeat(4,1fr)}
+  .cats-grid{grid-template-columns:repeat(auto-fill,minmax(220px,1fr))}
+}
+
+/* === Wide desktop (1280px and up) === */
+@media(min-width:1280px){
+  .main{max-width:1280px}
+}
+
+/* === Mobile (640px and below) === */
 @media(max-width:640px){
-  .main{padding:1rem}
-  .auth-card{padding:1.5rem}
-  .stat-value{font-size:1.5rem}
+  body{font-size:14px}
+  .main{padding:.8rem}
+  .navbar{padding:.7rem 1rem;flex-wrap:wrap;gap:.5rem}
+  .brand{font-size:1rem}
+  .brand-emoji{font-size:1.3rem}
+  .user-name{font-size:.8rem}
+  .section{padding:1rem;border-radius:10px}
+  .section-head{flex-wrap:wrap;gap:.5rem}
+  .section-title{font-size:1rem}
+  .summary{grid-template-columns:repeat(2,1fr);gap:.6rem}
+  .stat{padding:.9rem}
+  .stat-icon{font-size:1.2rem}
+  .stat-value{font-size:1.3rem}
+  .stat-label{font-size:.65rem}
+  .cats-grid{grid-template-columns:repeat(auto-fill,minmax(140px,1fr));gap:.7rem}
+  .cat-card{padding:.9rem}
+  .cat-avatar{width:48px;height:48px;font-size:1.4rem;margin-bottom:.5rem}
+  .cat-name{font-size:.95rem}
+  .cat-meta{font-size:.75rem}
+  .cat-photo-large{width:90px;height:90px;font-size:2.5rem}
+  .tabs{margin-left:-1rem;margin-right:-1rem;padding:0 1rem;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab{padding:.6rem .8rem;font-size:.82rem}
+  .auth-wrap{padding:.6rem}
+  .auth-card{padding:1.3rem 1.1rem;border-radius:14px}
+  .auth-logo .emoji{font-size:3rem}
+  .auth-logo h1{font-size:1.3rem}
+  .auth-logo p{font-size:.8rem}
+  .modal{padding:1.3rem;border-radius:14px;max-height:95vh}
+  .modal-title{font-size:1rem}
+  .modal-actions{flex-direction:column-reverse;gap:.4rem}
+  .modal-actions .btn{width:100%}
+  .toast{left:1rem;right:1rem;bottom:1rem;max-width:none}
+  .records-list{gap:.4rem}
+  .record{padding:.7rem .8rem}
+  .record-title{font-size:.9rem}
+  .record-meta{font-size:.78rem}
+  .chart-stats{grid-template-columns:repeat(2,1fr);gap:.4rem}
+  .chart-stat{padding:.6rem}
+  .chart-stat-value{font-size:1rem}
+  .chart-svg{height:200px}
+  .weight-log{padding:.7rem .8rem;flex-wrap:wrap;gap:.4rem}
+  .weight-log-info{flex-wrap:wrap;gap:.5rem}
+  .weight-log-value{font-size:.95rem}
+  .exp-summary{grid-template-columns:repeat(3,1fr);gap:.4rem}
+  .exp-stat{padding:.7rem}
+  .exp-stat-label{font-size:.6rem}
+  .exp-stat-value{font-size:1rem}
+  .exp-bars{height:130px}
+  .exp-bar{max-width:28px}
+  .exp-bar-month{font-size:.6rem}
+  .exp-bar-val{font-size:.55rem}
+  .exp-cat-grid{grid-template-columns:1fr}
+  .exp-item{padding:.7rem .8rem}
+  .exp-item-title{font-size:.85rem}
+  .exp-item-amount{font-size:.95rem}
+  .tl-filters{margin-left:-.3rem;margin-right:-.3rem;padding:0 .3rem;overflow-x:auto;flex-wrap:nowrap;-webkit-overflow-scrolling:touch;scrollbar-width:none}
+  .tl-filters::-webkit-scrollbar{display:none}
+  .tl-filter{white-space:nowrap;padding:.4rem .7rem;font-size:.8rem}
+  .timeline{padding-left:1.8rem}
+  .timeline::before{left:.6rem}
+  .tl-item::before{left:-1.8rem;width:1.6rem;height:1.6rem;font-size:.8rem}
+  .tl-card{padding:.7rem .8rem}
+  .tl-title{font-size:.88rem}
+  .tl-desc{font-size:.78rem}
+}
+
+/* === Very small mobile (380px and below) === */
+@media(max-width:380px){
+  .summary{grid-template-columns:1fr 1fr}
+  .exp-summary{grid-template-columns:1fr}
+  .navbar{padding:.6rem .8rem}
+  .user-name{display:none}
 }
 </style>
 </head>
@@ -363,7 +460,8 @@ function logout() {
 async function showApp() {
   document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('app-screen').classList.remove('hidden');
-  document.getElementById('user-name').textContent = '👋 ' + USER.name;
+  const firstName = USER.name.split(' ')[0];
+  document.getElementById('user-name').textContent = '👋 ' + firstName;
   await loadDashboard();
   await loadCats();
 }
