@@ -21,7 +21,12 @@ const app = new Hono<{ Bindings: Env }>();
 
 app.use('*', logger());
 app.use('/api/*', cors({
-  origin: ['https://catcare.example.com', 'http://localhost:3000', 'https://cat-care-system.abdulloh-eg.workers.dev'],
+  origin: [
+    'https://cat-care.ilikeit.info',
+    'https://cat-care-system.abdulloh-eg.workers.dev',
+    'http://localhost:3000',
+    'http://127.0.0.1:8787',
+  ],
   allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowHeaders: ['Content-Type', 'Authorization'],
   maxAge: 86400,
