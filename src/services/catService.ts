@@ -16,12 +16,14 @@ export class CatService {
     return rowToCat((await queryOne<CatRow>(env.DB, 'SELECT * FROM cats WHERE id = ?', [id]))!);
   }
 
-  static async getCatsByUserId(userId: string, env: Env): Promise<Cat[]> {
-    return (await query<CatRow>(env.DB, 'SELECT * FROM cats WHERE user_id = ? ORDER BY created_at DESC', [userId])).map(rowToCat);
+  // Shared workspace: all authenticated users see and manage the same cats.
+  // userId is kept for "created_by" tracking but no longer filters queries.
+  static async getCatsByUserId(_userId: string, env: Env): Promise<Cat[]> {
+    return (await query<CatRow>(env.DB, 'SELECT * FROM cats ORDER BY created_at DESC')).map(rowToCat);
   }
 
-  static async getCatById(catId: string, userId: string, env: Env): Promise<Cat> {
-    const row = await queryOne<CatRow>(env.DB, 'SELECT * FROM cats WHERE id = ? AND user_id = ?', [catId, userId]);
+  static async getCatById(catId: string, _userId: string, env: Env): Promise<Cat> {
+    const row = await queryOne<CatRow>(env.DB, 'SELECT * FROM cats WHERE id = ?', [catId]);
     if (!row) throw NOT_FOUND;
     return rowToCat(row);
   }
@@ -31,12 +33,12 @@ export class CatService {
     const fieldMap: Record<string, string> = { name: 'name', gender: 'gender', breed: 'breed', dateOfBirth: 'date_of_birth', weightKg: 'weight_kg', healthStatus: 'health_status', microchipId: 'microchip_id', photoUrl: 'photo_url', chronicDiseases: 'chronic_diseases', drugAllergies: 'drug_allergies', forbiddenFoods: 'forbidden_foods' };
     const setClauses: string[] = []; const values: unknown[] = [];
     for (const [key, col] of Object.entries(fieldMap)) { const val = updates[key as keyof Cat]; if (val !== undefined) { setClauses.push(`${col} = ?`); values.push(val); } }
-    if (setClauses.length > 0) { setClauses.push('updated_at = ?'); values.push(new Date().toISOString(), catId, userId); await execute(env.DB, `UPDATE cats SET ${setClauses.join(', ')} WHERE id = ? AND user_id = ?`, values); }
+    if (setClauses.length > 0) { setClauses.push('updated_at = ?'); values.push(new Date().toISOString(), catId); await execute(env.DB, `UPDATE cats SET ${setClauses.join(', ')} WHERE id = ?`, values); }
     return CatService.getCatById(catId, userId, env);
   }
 
   static async deleteCat(catId: string, userId: string, env: Env): Promise<void> {
     await CatService.getCatById(catId, userId, env);
-    await execute(env.DB, 'DELETE FROM cats WHERE id = ? AND user_id = ?', [catId, userId]);
+    await execute(env.DB, 'DELETE FROM cats WHERE id = ?', [catId]);
   }
 }
