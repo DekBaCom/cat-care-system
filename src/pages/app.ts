@@ -109,6 +109,32 @@ label{display:block;font-size:.85rem;font-weight:600;color:#4a5568;margin-bottom
 .spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:white;border-radius:50%;animation:spin .8s linear infinite;margin-right:.5rem;vertical-align:middle}
 @keyframes spin{to{transform:rotate(360deg)}}
 
+.chart-wrap{background:#f7fafc;border-radius:12px;padding:1.2rem;margin-bottom:1.2rem}
+.chart-title{font-size:.85rem;color:#718096;font-weight:600;text-transform:uppercase;letter-spacing:.05em;margin-bottom:.8rem}
+.chart-stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:.6rem;margin-bottom:1rem}
+.chart-stat{background:white;padding:.7rem;border-radius:8px;text-align:center}
+.chart-stat-label{font-size:.7rem;color:#718096;text-transform:uppercase;letter-spacing:.05em}
+.chart-stat-value{font-size:1.2rem;font-weight:700;color:#2d3748;margin-top:.2rem}
+.chart-stat-value.up{color:#48bb78}
+.chart-stat-value.down{color:#f56565}
+.chart-svg{width:100%;height:240px}
+.chart-svg .grid-line{stroke:#e2e8f0;stroke-width:1}
+.chart-svg .axis-label{font-size:11px;fill:#a0aec0}
+.chart-svg .data-line{stroke:#667eea;stroke-width:2.5;fill:none;stroke-linejoin:round;stroke-linecap:round}
+.chart-svg .data-area{fill:url(#chart-grad);opacity:.3}
+.chart-svg .data-point{fill:white;stroke:#667eea;stroke-width:2.5}
+.chart-svg .data-point:hover{r:6;cursor:pointer}
+.weight-log{display:flex;justify-content:space-between;align-items:center;background:#f7fafc;padding:.8rem 1rem;border-radius:8px;margin-bottom:.4rem}
+.weight-log-info{display:flex;align-items:center;gap:.8rem}
+.weight-log-value{font-size:1.1rem;font-weight:700;color:#2d3748}
+.weight-log-diff{font-size:.8rem;font-weight:600;padding:.15rem .5rem;border-radius:10px}
+.weight-log-diff.up{background:#fed7d7;color:#742a2a}
+.weight-log-diff.down{background:#c6f6d5;color:#22543d}
+.weight-log-diff.same{background:#edf2f7;color:#4a5568}
+.weight-log-date{font-size:.8rem;color:#718096}
+.weight-log-delete{background:transparent;color:#a0aec0;padding:.3rem .5rem;font-size:.85rem;border-radius:4px}
+.weight-log-delete:hover{background:#fed7d7;color:#742a2a}
+
 @media(max-width:640px){
   .main{padding:1rem}
   .auth-card{padding:1.5rem}
@@ -196,11 +222,13 @@ label{display:block;font-size:.85rem;font-weight:600;color:#4a5568;margin-bottom
         <button class="tab" data-tab="vacc" onclick="switchDetailTab('vacc')">💉 วัคซีน</button>
         <button class="tab" data-tab="meds" onclick="switchDetailTab('meds')">💊 ยา</button>
         <button class="tab" data-tab="medical" onclick="switchDetailTab('medical')">🏥 ประวัติ</button>
+        <button class="tab" data-tab="weight" onclick="switchDetailTab('weight')">⚖️ น้ำหนัก</button>
       </div>
       <div id="tab-info" class="tab-content"></div>
       <div id="tab-vacc" class="tab-content hidden"></div>
       <div id="tab-meds" class="tab-content hidden"></div>
       <div id="tab-medical" class="tab-content hidden"></div>
+      <div id="tab-weight" class="tab-content hidden"></div>
     </div>
   </div>
 </div>
@@ -350,10 +378,11 @@ function closeDetail() {
 
 function switchDetailTab(tab) {
   document.querySelectorAll('#cat-detail .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-  ['info', 'vacc', 'meds', 'medical'].forEach(t => document.getElementById('tab-' + t).classList.toggle('hidden', t !== tab));
+  ['info', 'vacc', 'meds', 'medical', 'weight'].forEach(t => document.getElementById('tab-' + t).classList.toggle('hidden', t !== tab));
   if (tab === 'vacc') loadVaccinations();
   if (tab === 'meds') loadMedications();
   if (tab === 'medical') loadMedicalHistory();
+  if (tab === 'weight') loadWeightHistory();
 }
 
 function renderInfoTab() {
@@ -412,21 +441,143 @@ function openEditCatModal() {
 
 function openWeightModal() {
   const c = CURRENT_CAT;
+  const today = new Date().toISOString().slice(0, 10);
   modal('⚖️ บันทึกน้ำหนัก ' + escapeHtml(c.name), \`
     <div style="text-align:center;margin-bottom:1rem;padding:1rem;background:#f7fafc;border-radius:10px">
       <div style="font-size:.85rem;color:#718096">น้ำหนักปัจจุบัน</div>
       <div style="font-size:2rem;font-weight:700;color:#2d3748">\${c.weightKg ? c.weightKg + ' kg' : 'ยังไม่มีข้อมูล'}</div>
     </div>
-    <div class="field"><label>น้ำหนักใหม่ (kg) *</label><input type="number" step="0.01" name="weightKg" required placeholder="3.5" value="\${c.weightKg || ''}" autofocus></div>
+    <div class="field"><label>น้ำหนักใหม่ (kg) *</label><input type="number" step="0.01" name="weightKg" required placeholder="3.5" autofocus></div>
+    <div class="field"><label>วันที่ชั่ง</label><input type="date" name="loggedDate" value="\${today}"></div>
+    <div class="field"><label>หมายเหตุ</label><input name="notes" placeholder="เช่น หลังกินอาหาร, ก่อนผ่าตัด"></div>
   \`, async (f) => {
     const weightKg = parseFloat(f.get('weightKg'));
     if (isNaN(weightKg) || weightKg <= 0) throw new Error('น้ำหนักต้องเป็นตัวเลขมากกว่า 0');
-    const r = await api('/api/cats/' + CURRENT_CAT.id, { method: 'PUT', body: JSON.stringify({ weightKg }) });
-    CURRENT_CAT = r.data;
+    const body = { weightKg, loggedDate: f.get('loggedDate') || today };
+    if (f.get('notes')) body.notes = f.get('notes');
+    await api('/api/cats/' + CURRENT_CAT.id + '/weights', { method: 'POST', body: JSON.stringify(body) });
+    CURRENT_CAT.weightKg = weightKg;
     toast('บันทึกน้ำหนักสำเร็จ (' + weightKg + ' kg)');
     renderInfoTab();
     loadCats();
   });
+}
+
+async function loadWeightHistory() {
+  const el = document.getElementById('tab-weight');
+  el.innerHTML = '<div style="margin-bottom:1rem"><button class="btn btn-sm" onclick="openWeightModal()">+ บันทึกน้ำหนัก</button></div><div id="weight-content"></div>';
+  try {
+    const r = await api('/api/cats/' + CURRENT_CAT.id + '/weights');
+    const logs = r.data.logs;
+    const content = document.getElementById('weight-content');
+    if (logs.length === 0) {
+      content.innerHTML = '<div class="empty"><div class="empty-icon">⚖️</div><p>ยังไม่มีข้อมูลน้ำหนัก คลิก "บันทึกน้ำหนัก" เพื่อเริ่มต้น</p></div>';
+      return;
+    }
+
+    const weights = logs.map(l => l.weightKg);
+    const current = weights[weights.length - 1];
+    const first = weights[0];
+    const min = Math.min(...weights);
+    const max = Math.max(...weights);
+    const change = current - first;
+    const changePct = first > 0 ? ((change / first) * 100).toFixed(1) : 0;
+
+    content.innerHTML = \`
+      <div class="chart-wrap">
+        <div class="chart-title">📊 กราฟน้ำหนัก</div>
+        <div class="chart-stats">
+          <div class="chart-stat"><div class="chart-stat-label">ปัจจุบัน</div><div class="chart-stat-value">\${current} kg</div></div>
+          <div class="chart-stat"><div class="chart-stat-label">เปลี่ยนแปลง</div><div class="chart-stat-value \${change > 0 ? 'up' : change < 0 ? 'down' : ''}">\${change > 0 ? '+' : ''}\${change.toFixed(2)} kg</div></div>
+          <div class="chart-stat"><div class="chart-stat-label">ต่ำสุด</div><div class="chart-stat-value">\${min} kg</div></div>
+          <div class="chart-stat"><div class="chart-stat-label">สูงสุด</div><div class="chart-stat-value">\${max} kg</div></div>
+        </div>
+        \${renderChart(logs)}
+      </div>
+      <div class="chart-title">📋 ประวัติการชั่ง (\${logs.length} ครั้ง)</div>
+      <div>
+        \${[...logs].reverse().map((l, i, arr) => {
+          const prev = arr[i + 1];
+          const diff = prev ? l.weightKg - prev.weightKg : 0;
+          const diffStr = !prev ? '<span class="weight-log-diff same">เริ่มต้น</span>' : diff > 0 ? '<span class="weight-log-diff up">+' + diff.toFixed(2) + '</span>' : diff < 0 ? '<span class="weight-log-diff down">' + diff.toFixed(2) + '</span>' : '<span class="weight-log-diff same">±0</span>';
+          return \`
+            <div class="weight-log">
+              <div class="weight-log-info">
+                <div class="weight-log-value">\${l.weightKg} kg</div>
+                \${diffStr}
+                <div>
+                  <div class="weight-log-date">\${l.loggedDate}</div>
+                  \${l.notes ? '<div style="font-size:.75rem;color:#a0aec0">' + escapeHtml(l.notes) + '</div>' : ''}
+                </div>
+              </div>
+              <button class="weight-log-delete" onclick="deleteWeightLog('\${l.id}')">🗑</button>
+            </div>
+          \`;
+        }).join('')}
+      </div>
+    \`;
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+function renderChart(logs) {
+  const W = 600, H = 240, PAD_L = 45, PAD_R = 15, PAD_T = 20, PAD_B = 35;
+  const innerW = W - PAD_L - PAD_R;
+  const innerH = H - PAD_T - PAD_B;
+
+  const weights = logs.map(l => l.weightKg);
+  const minW = Math.min(...weights);
+  const maxW = Math.max(...weights);
+  const range = Math.max(maxW - minW, 0.5);
+  const yMin = minW - range * 0.1;
+  const yMax = maxW + range * 0.1;
+  const yRange = yMax - yMin;
+
+  const xStep = logs.length > 1 ? innerW / (logs.length - 1) : 0;
+  const xAt = (i) => PAD_L + (logs.length > 1 ? i * xStep : innerW / 2);
+  const yAt = (w) => PAD_T + innerH - ((w - yMin) / yRange) * innerH;
+
+  const linePath = logs.map((l, i) => (i === 0 ? 'M' : 'L') + xAt(i) + ' ' + yAt(l.weightKg)).join(' ');
+  const areaPath = linePath + ' L' + xAt(logs.length - 1) + ' ' + (PAD_T + innerH) + ' L' + xAt(0) + ' ' + (PAD_T + innerH) + ' Z';
+
+  const gridLines = [];
+  const labelCount = 4;
+  for (let i = 0; i <= labelCount; i++) {
+    const v = yMin + (yRange * i / labelCount);
+    const y = PAD_T + innerH - (i / labelCount) * innerH;
+    gridLines.push('<line class="grid-line" x1="' + PAD_L + '" y1="' + y + '" x2="' + (W - PAD_R) + '" y2="' + y + '"/>');
+    gridLines.push('<text class="axis-label" x="' + (PAD_L - 6) + '" y="' + (y + 3) + '" text-anchor="end">' + v.toFixed(1) + '</text>');
+  }
+
+  const xLabels = [];
+  const labelStep = Math.max(1, Math.ceil(logs.length / 6));
+  for (let i = 0; i < logs.length; i += labelStep) {
+    xLabels.push('<text class="axis-label" x="' + xAt(i) + '" y="' + (H - 12) + '" text-anchor="middle">' + logs[i].loggedDate.slice(5) + '</text>');
+  }
+
+  const points = logs.map((l, i) => '<circle class="data-point" cx="' + xAt(i) + '" cy="' + yAt(l.weightKg) + '" r="4"><title>' + l.loggedDate + ': ' + l.weightKg + ' kg</title></circle>').join('');
+
+  return \`<svg class="chart-svg" viewBox="0 0 \${W} \${H}" preserveAspectRatio="xMidYMid meet">
+    <defs>
+      <linearGradient id="chart-grad" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#667eea"/>
+        <stop offset="100%" stop-color="#667eea" stop-opacity="0"/>
+      </linearGradient>
+    </defs>
+    \${gridLines.join('')}
+    <path class="data-area" d="\${areaPath}"/>
+    <path class="data-line" d="\${linePath}"/>
+    \${points}
+    \${xLabels.join('')}
+  </svg>\`;
+}
+
+async function deleteWeightLog(logId) {
+  if (!confirm('ลบรายการนี้?')) return;
+  try {
+    await api('/api/cats/' + CURRENT_CAT.id + '/weights/' + logId, { method: 'DELETE' });
+    toast('ลบสำเร็จ');
+    loadWeightHistory();
+  } catch (err) { toast(err.message, 'error'); }
 }
 
 async function uploadPhoto(input) {
