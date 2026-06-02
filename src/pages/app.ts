@@ -429,57 +429,128 @@ async function handleGoogleCredential(response) {
   } catch (err) { authMsg('Google login ล้มเหลว: ' + err.message, 'error'); }
 }
 
+let GOOGLE_CLIENT_ID = '';
+
 async function initGoogleSignIn() {
   try {
     const cfg = await (await fetch('/api/config')).json();
-    if (!cfg.googleClientId) {
+    GOOGLE_CLIENT_ID = cfg.googleClientId;
+
+    if (!GOOGLE_CLIENT_ID) {
       document.querySelector('.gbtn-wrap').innerHTML = '<div style="font-size:.8rem;color:#a0aec0;text-align:center">⚠️ ยังไม่ได้ตั้งค่า Google Sign-In</div>';
       return;
     }
+
+    if (!window.google?.accounts?.id) {
+      document.querySelector('.gbtn-wrap').innerHTML = renderManualGoogleBtn();
+      return;
+    }
+
     window.handleGoogleCredential = handleGoogleCredential;
-    if (window.google && window.google.accounts) {
-      window.google.accounts.id.initialize({
-        client_id: cfg.googleClientId,
-        callback: handleGoogleCredential,
-        auto_select: false,
-        cancel_on_tap_outside: true,
-        ux_mode: 'popup',
-        use_fedcm_for_prompt: true,
-      });
+    window.google.accounts.id.initialize({
+      client_id: GOOGLE_CLIENT_ID,
+      callback: handleGoogleCredential,
+      auto_select: false,
+      cancel_on_tap_outside: true,
+      ux_mode: 'popup',
+    });
 
-      const container = document.getElementById('g_id_signin');
-      const availableWidth = Math.min(
-        container.parentElement.clientWidth || 320,
-        360,
-      );
-      const btnWidth = Math.max(240, Math.floor(availableWidth));
+    const container = document.getElementById('g_id_signin');
+    const parentWidth = container?.parentElement?.clientWidth || 300;
+    const btnWidth = Math.max(240, Math.min(parentWidth - 10, 360));
 
-      window.google.accounts.id.renderButton(container, {
-        type: 'standard',
-        theme: 'outline',
-        size: 'large',
-        text: 'signin_with',
-        shape: 'rectangular',
-        logo_alignment: 'left',
-        width: btnWidth,
-      });
+    window.google.accounts.id.renderButton(container, {
+      type: 'standard',
+      theme: 'outline',
+      size: 'large',
+      text: 'signin_with',
+      shape: 'rectangular',
+      logo_alignment: 'left',
+      width: btnWidth,
+    });
 
-      // Show One Tap prompt (auto-suggests Google accounts) — better UX on mobile
-      window.google.accounts.id.prompt();
+    // Add manual fallback below the official button (useful if button fails on some Android)
+    const wrap = document.querySelector('.gbtn-wrap');
+    if (wrap && !document.getElementById('g-manual')) {
+      const manual = document.createElement('button');
+      manual.id = 'g-manual';
+      manual.type = 'button';
+      manual.className = 'btn btn-secondary btn-sm';
+      manual.style.cssText = 'margin-top:.7rem;font-size:.8rem';
+      manual.textContent = 'ปุ่ม Google ไม่ขึ้น? คลิกที่นี่';
+      manual.onclick = () => triggerGoogleSignIn();
+      wrap.appendChild(manual);
     }
   } catch (err) {
     console.error('Google init failed', err);
     const el = document.querySelector('.gbtn-wrap');
-    if (el) el.innerHTML = '<div style="font-size:.8rem;color:#f56565;text-align:center">⚠️ โหลด Google Sign-In ไม่สำเร็จ ลองรีเฟรชหน้าใหม่</div>';
+    if (el) el.innerHTML = renderManualGoogleBtn();
   }
 }
 
-// Re-render Google button on screen rotation/resize
+function renderManualGoogleBtn() {
+  return \`
+    <button class="btn btn-block" onclick="triggerGoogleSignIn()" style="background:white;color:#3c4043;border:1px solid #dadce0;display:flex;align-items:center;justify-content:center;gap:.6rem">
+      <svg width="18" height="18" viewBox="0 0 18 18"><path fill="#4285F4" d="M16.51 8H8.98v3h4.3c-.18 1-.74 1.48-1.6 2.04v2.01h2.6a7.8 7.8 0 0 0 2.38-5.88c0-.57-.05-.66-.15-1.18z"/><path fill="#34A853" d="M8.98 17c2.16 0 3.97-.72 5.3-1.94l-2.6-2.04a4.8 4.8 0 0 1-7.18-2.54H1.83v2.07A8 8 0 0 0 8.98 17z"/><path fill="#FBBC05" d="M4.5 10.48a4.8 4.8 0 0 1 0-3.04V5.37H1.83a8 8 0 0 0 0 7.18l2.67-2.07z"/><path fill="#EA4335" d="M8.98 4.18c1.17 0 2.23.4 3.06 1.2l2.3-2.3A8 8 0 0 0 1.83 5.37L4.5 7.44a4.77 4.77 0 0 1 4.48-3.26z"/></svg>
+      เข้าสู่ระบบด้วย Google
+    </button>
+  \`;
+}
+
+function triggerGoogleSignIn() {
+  if (!window.google?.accounts?.id) {
+    authMsg('โหลด Google ไม่สำเร็จ ลองรีเฟรชหน้าใหม่', 'error');
+    return;
+  }
+  try {
+    window.google.accounts.id.prompt((notification) => {
+      if (notification.isNotDisplayed?.() || notification.isSkippedMoment?.()) {
+        // Prompt blocked — fall back to OAuth code flow redirect
+        const redirectUri = window.location.origin + '/';
+        const url = 'https://accounts.google.com/o/oauth2/v2/auth?'
+          + 'client_id=' + encodeURIComponent(GOOGLE_CLIENT_ID)
+          + '&redirect_uri=' + encodeURIComponent(redirectUri)
+          + '&response_type=id_token'
+          + '&scope=openid%20email%20profile'
+          + '&nonce=' + Math.random().toString(36).slice(2)
+          + '&prompt=select_account';
+        window.location.href = url;
+      }
+    });
+  } catch (err) {
+    console.error('Google prompt failed', err);
+    authMsg('เปิดหน้า Google ไม่สำเร็จ: ' + err.message, 'error');
+  }
+}
+
+// Handle redirect-mode return — Google sends ID token in URL fragment
+async function checkGoogleRedirectReturn() {
+  if (!window.location.hash.includes('id_token=')) return false;
+  const params = new URLSearchParams(window.location.hash.slice(1));
+  const idToken = params.get('id_token');
+  if (!idToken) return false;
+  // Clean URL
+  history.replaceState({}, '', window.location.pathname);
+  try {
+    const r = await api('/api/auth/google', { method: 'POST', body: JSON.stringify({ idToken }) });
+    TOKEN = r.data.token; USER = r.data.user;
+    localStorage.setItem('token', TOKEN); localStorage.setItem('user', JSON.stringify(USER));
+    showApp();
+    return true;
+  } catch (err) {
+    authMsg('Google login ล้มเหลว: ' + err.message, 'error');
+    return false;
+  }
+}
+
 let __gResizeTimer;
 window.addEventListener('resize', () => {
   clearTimeout(__gResizeTimer);
   __gResizeTimer = setTimeout(() => {
     if (!TOKEN && window.google?.accounts && document.getElementById('g_id_signin')) {
+      document.getElementById('g_id_signin').innerHTML = '';
+      const manual = document.getElementById('g-manual');
+      if (manual) manual.remove();
       initGoogleSignIn();
     }
   }, 300);
@@ -1224,11 +1295,14 @@ function loadGoogleScript() {
 }
 
 // Initial load
-if (TOKEN && USER) {
-  showApp();
-} else {
-  loadGoogleScript().then(initGoogleSignIn);
-}
+(async function init() {
+  if (await checkGoogleRedirectReturn()) return;
+  if (TOKEN && USER) {
+    showApp();
+  } else {
+    loadGoogleScript().then(initGoogleSignIn);
+  }
+})();
 </script>
 </body>
 </html>`;
