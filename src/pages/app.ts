@@ -441,14 +441,49 @@ async function initGoogleSignIn() {
       window.google.accounts.id.initialize({
         client_id: cfg.googleClientId,
         callback: handleGoogleCredential,
+        auto_select: false,
+        cancel_on_tap_outside: true,
+        ux_mode: 'popup',
+        use_fedcm_for_prompt: true,
       });
-      window.google.accounts.id.renderButton(document.getElementById('g_id_signin'), {
-        type: 'standard', theme: 'outline', size: 'large',
-        text: 'signin_with', shape: 'pill', logo_alignment: 'left', width: 320,
+
+      const container = document.getElementById('g_id_signin');
+      const availableWidth = Math.min(
+        container.parentElement.clientWidth || 320,
+        360,
+      );
+      const btnWidth = Math.max(240, Math.floor(availableWidth));
+
+      window.google.accounts.id.renderButton(container, {
+        type: 'standard',
+        theme: 'outline',
+        size: 'large',
+        text: 'signin_with',
+        shape: 'rectangular',
+        logo_alignment: 'left',
+        width: btnWidth,
       });
+
+      // Show One Tap prompt (auto-suggests Google accounts) — better UX on mobile
+      window.google.accounts.id.prompt();
     }
-  } catch (err) { console.error('Google init failed', err); }
+  } catch (err) {
+    console.error('Google init failed', err);
+    const el = document.querySelector('.gbtn-wrap');
+    if (el) el.innerHTML = '<div style="font-size:.8rem;color:#f56565;text-align:center">⚠️ โหลด Google Sign-In ไม่สำเร็จ ลองรีเฟรชหน้าใหม่</div>';
+  }
 }
+
+// Re-render Google button on screen rotation/resize
+let __gResizeTimer;
+window.addEventListener('resize', () => {
+  clearTimeout(__gResizeTimer);
+  __gResizeTimer = setTimeout(() => {
+    if (!TOKEN && window.google?.accounts && document.getElementById('g_id_signin')) {
+      initGoogleSignIn();
+    }
+  }, 300);
+});
 
 function logout() {
   TOKEN = null; USER = null;
