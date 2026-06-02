@@ -706,6 +706,80 @@ async function disconnectLine() {
   } catch (err) { toast(err.message, 'error'); }
 }
 
+// ─── Share Link ───────────────────────────────────────────────────────────────
+
+async function openShareModal() {
+  infoModal('🔗 แชร์ประวัติแมวให้หมอ', '<div style="text-align:center;padding:1.5rem;color:#a0aec0">กำลังตรวจสอบ...</div>');
+  try {
+    const r = await api('/api/cats/' + CURRENT_CAT.id + '/share');
+    renderShareModalContent(r.data.active, r.data.url);
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+function renderShareModalContent(active, url) {
+  const el = document.getElementById('info-modal-body');
+  if (!el) return;
+  if (active && url) {
+    const lineUrl = 'https://social-plugins.line.me/lineit/share?url=' + encodeURIComponent(url);
+    el.innerHTML = \`
+      <div style="background:#f0fff4;border-radius:10px;padding:1rem;margin-bottom:1rem;text-align:center">
+        <div style="font-size:1.5rem">✅</div>
+        <div style="font-weight:700;color:#22543d;margin-top:.3rem">Link พร้อมแชร์แล้ว</div>
+        <div style="font-size:.8rem;color:#276749;margin-top:.2rem">หมอสามารถเปิดดูได้โดยไม่ต้อง Login</div>
+      </div>
+      <div style="background:#f7fafc;border-radius:8px;padding:.7rem .9rem;word-break:break-all;font-size:.82rem;color:#4a5568;margin-bottom:1rem;border:1px solid #e2e8f0">\${escapeHtml(url)}</div>
+      <div style="display:flex;flex-direction:column;gap:.6rem">
+        <button class="btn btn-block" onclick="copyShareLink('\${escapeHtml(url)}')">📋 คัดลอก Link</button>
+        <a class="btn btn-block" href="\${escapeHtml(lineUrl)}" target="_blank" style="background:#06C755;text-align:center;text-decoration:none;display:block;padding:.75rem 1.5rem;border-radius:8px;color:white;font-weight:600">📱 ส่งผ่าน LINE</a>
+        <button class="btn btn-block" onclick="openSharePage('\${escapeHtml(url)}')" style="background:#4299e1">🌐 เปิดหน้าแสดงข้อมูล</button>
+        <button class="btn btn-secondary btn-block" onclick="revokeShareLink()" style="margin-top:.3rem">🗑 ยกเลิก Link นี้</button>
+      </div>
+    \`;
+  } else {
+    el.innerHTML = \`
+      <div style="background:#ebf8ff;border-radius:10px;padding:1rem;margin-bottom:1rem">
+        <div style="font-size:.9rem;color:#2b6cb0;font-weight:600;margin-bottom:.4rem">📋 ข้อมูลที่หมอจะเห็น:</div>
+        <div style="font-size:.82rem;color:#4a5568;line-height:1.7">
+          ✅ ข้อมูลพื้นฐาน (ชื่อ เพศ สายพันธุ์ น้ำหนัก)<br>
+          ✅ ประวัติวัคซีน<br>
+          ✅ ยาที่กำลังได้รับ<br>
+          ✅ ประวัติการรักษา<br>
+          ✅ โรคประจำตัว / แพ้ยา / อาหารต้องห้าม<br>
+          ✅ ข้อมูลอาหาร
+        </div>
+      </div>
+      <button class="btn btn-block" onclick="generateShareLink()" id="gen-share-btn">🔗 สร้าง Share Link</button>
+    \`;
+  }
+}
+
+async function generateShareLink() {
+  const btn = document.getElementById('gen-share-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'กำลังสร้าง...'; }
+  try {
+    const r = await api('/api/cats/' + CURRENT_CAT.id + '/share', { method: 'POST' });
+    renderShareModalContent(true, r.data.url);
+    toast('สร้าง Share Link สำเร็จ');
+  } catch (err) { toast(err.message, 'error'); if (btn) { btn.disabled = false; btn.textContent = '🔗 สร้าง Share Link'; } }
+}
+
+async function revokeShareLink() {
+  if (!confirm('ยืนยันยกเลิก Link? หมอจะเข้าถึงข้อมูลไม่ได้อีก')) return;
+  try {
+    await api('/api/cats/' + CURRENT_CAT.id + '/share', { method: 'DELETE' });
+    renderShareModalContent(false, null);
+    toast('ยกเลิก Link แล้ว');
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+function copyShareLink(url) {
+  navigator.clipboard.writeText(url).then(() => toast('คัดลอก Link แล้ว'));
+}
+
+function openSharePage(url) {
+  window.open(url, '_blank');
+}
+
 async function showApp() {
   document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('app-screen').classList.remove('hidden');
@@ -1049,6 +1123,7 @@ function renderInfoTab() {
     <div style="margin-top:1rem;display:flex;gap:.5rem;flex-wrap:wrap">
       <button class="btn btn-sm" onclick="openEditCatModal()">✏️ แก้ไขข้อมูล</button>
       <button class="btn btn-secondary btn-sm" onclick="openWeightModal()">⚖️ บันทึกน้ำหนัก</button>
+      <button class="btn btn-secondary btn-sm" onclick="openShareModal()">🔗 แชร์หาหมอ</button>
       \${c.photoUrl ? '<button class="btn btn-secondary btn-sm" onclick="removePhoto()">🗑 ลบรูป</button>' : ''}
       <button class="btn btn-danger btn-sm" onclick="deleteCat()">🗑 ลบข้อมูลแมว</button>
     </div>

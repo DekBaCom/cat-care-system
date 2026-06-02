@@ -13,6 +13,8 @@ import { weightRoutes } from './routes/weights';
 import { timelineRoutes } from './routes/timeline';
 import { expenseRoutes } from './routes/expenses';
 import { notificationRoutes } from './routes/notifications';
+import { shareRoutes } from './routes/share';
+import { renderSharePage } from './pages/share';
 import { lineWebhook } from './webhooks/line';
 import { handleScheduled } from './scheduled/notifications';
 import { errorToResponse } from './utils/errors';
@@ -35,6 +37,12 @@ app.use('/api/*', cors({
 app.onError((err, c) => { const { statusCode, body } = errorToResponse(err); return c.json(body, statusCode as 500); });
 
 app.get('/', (c) => c.html(appHtml));
+
+app.get('/share/:token', async (c) => {
+  const html = await renderSharePage(c.req.param('token'), c.env);
+  if (!html) return c.notFound();
+  return c.html(html);
+});
 
 app.get('/api', (c) => c.json({
   name: 'Cat Care Management System',
@@ -83,6 +91,7 @@ app.route('/api', weightRoutes);
 app.route('/api', timelineRoutes);
 app.route('/api', expenseRoutes);
 app.route('/api', notificationRoutes);
+app.route('/api', shareRoutes);
 app.notFound((c) => c.json({ success: false, error: 'Not Found' }, 404));
 
 export default { fetch: app.fetch, scheduled: handleScheduled };
