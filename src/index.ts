@@ -18,6 +18,23 @@ app.use('*', logger());
 app.use('/api/*', cors({ origin: ['https://catcare.example.com', 'http://localhost:3000'], allowMethods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'], allowHeaders: ['Content-Type', 'Authorization'], maxAge: 86400 }));
 app.onError((err, c) => { const { statusCode, body } = errorToResponse(err); return c.json(body, statusCode as 500); });
 
+app.get('/', (c) => c.json({
+  name: 'Cat Care Management System',
+  version: '1.0.0',
+  status: 'ok',
+  environment: c.env.ENVIRONMENT,
+  endpoints: {
+    health: 'GET /health',
+    auth: ['POST /api/auth/register', 'POST /api/auth/login', 'POST /api/auth/line/connect'],
+    cats: ['GET /api/cats', 'POST /api/cats', 'GET /api/cats/:id', 'PUT /api/cats/:id', 'DELETE /api/cats/:id'],
+    vaccinations: ['GET /api/cats/:id/vaccinations', 'POST /api/cats/:id/vaccinations', 'GET /api/vaccinations/upcoming'],
+    medical: ['GET /api/cats/:id/medical-history', 'POST /api/cats/:id/medical-history', 'GET /api/cats/:id/medications', 'POST /api/cats/:id/medications'],
+    diet: ['GET /api/cats/:id/diet', 'POST /api/cats/:id/diet', 'GET /api/cats/:id/feeding-schedule', 'POST /api/cats/:id/feeding-schedule'],
+    dashboard: 'GET /api/dashboard',
+    webhook: 'POST /webhook/line',
+  },
+}));
+
 app.get('/health', (c) => c.json({ status: 'ok', timestamp: new Date().toISOString(), environment: c.env.ENVIRONMENT }));
 app.route('/webhook/line', lineWebhook);
 app.route('/api/auth', authRoutes);
