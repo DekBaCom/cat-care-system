@@ -793,6 +793,7 @@ function renderShareModalContent(active, url) {
   if (!el) return;
   if (active && url) {
     const msg = buildLineShareMessage(url);
+    window.__pendingShareMsg = msg;
     const lineUrl = 'https://line.me/R/msg/text/' + encodeURIComponent(msg);
     el.innerHTML = \`
       <div style="background:#f0fff4;border-radius:10px;padding:.8rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:.7rem">
@@ -812,7 +813,7 @@ function renderShareModalContent(active, url) {
         <a class="btn btn-block" href="\${escapeHtml(lineUrl)}" target="_blank" style="background:#06C755;text-align:center;text-decoration:none;display:block;padding:.75rem 1.5rem;border-radius:8px;color:white;font-weight:600;font-size:1rem">
           📱 ส่งหาหมอผ่าน LINE
         </a>
-        <button class="btn btn-block btn-secondary" onclick="copyShareMsg(\`\${escapeHtml(msg).replace(/\`/g,'')}\`)">📋 คัดลอกข้อความ</button>
+        <button class="btn btn-block btn-secondary" onclick="copyPendingShareMsg()">📋 คัดลอกข้อความ</button>
         <button class="btn btn-block" onclick="openSharePage('\${escapeHtml(url)}')" style="background:#4299e1">🌐 เปิดหน้าข้อมูล</button>
         <button class="btn btn-secondary btn-block btn-sm" style="color:#e53e3e;border-color:#e53e3e;margin-top:.2rem" onclick="revokeShareLink()">🗑 ยกเลิก Link นี้</button>
       </div>
@@ -834,7 +835,8 @@ function renderShareModalContent(active, url) {
   }
 }
 
-function copyShareMsg(msg) {
+function copyPendingShareMsg() {
+  const msg = window.__pendingShareMsg || '';
   navigator.clipboard.writeText(msg).then(() => toast('คัดลอกข้อความแล้ว'));
 }
 
