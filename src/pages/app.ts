@@ -1519,19 +1519,43 @@ async function loadMedicalHistory() {
     const r = await api('/api/cats/' + CURRENT_CAT.id + '/medical-history');
     const list = document.getElementById('history-list');
     if (r.data.records.length === 0) { list.innerHTML = '<div class="empty">ไม่มีประวัติการรักษา</div>'; return; }
-    list.innerHTML = '<div class="records-list">' + r.data.records.map(h => \`
+    list.innerHTML = '<div class="records-list">' + r.data.records.map(h => {
+      const isTreating = h.status === 'treating';
+      const statusBadge = isTreating
+        ? '<span style="background:#fed7d7;color:#c53030;font-size:.72rem;font-weight:700;padding:.2rem .55rem;border-radius:20px">🏥 กำลังรักษา</span>'
+        : '<span style="background:#c6f6d5;color:#276749;font-size:.72rem;font-weight:700;padding:.2rem .55rem;border-radius:20px">✅ หายแล้ว</span>';
+      const toggleBtn = isTreating
+        ? '<button class="btn btn-sm" style="font-size:.72rem;padding:.2rem .55rem;background:#48bb78;color:white;border:none" onclick="toggleMedStatus(\'' + h.id + '\',\'recovered\')">✅ หายแล้ว</button>'
+        : '<button class="btn btn-sm btn-secondary" style="font-size:.72rem;padding:.2rem .55rem" onclick="toggleMedStatus(\'' + h.id + '\',\'treating\')">🏥 กำลังรักษา</button>';
+      return \`
       <div class="record">
-        <div class="record-title">🏥 \${typeLabel(h.type)}</div>
-        \${h.diagnosis ? '<div class="record-meta">การวินิจฉัย: ' + escapeHtml(h.diagnosis) + '</div>' : ''}
-        \${h.symptoms ? '<div class="record-meta">อาการ: ' + escapeHtml(h.symptoms) + '</div>' : ''}
-        <div class="record-date">\${h.recordDate}</div>
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem">
+          <div style="flex:1">
+            <div style="display:flex;align-items:center;gap:.5rem;flex-wrap:wrap;margin-bottom:.3rem">
+              <span class="record-title" style="margin:0">🏥 \${typeLabel(h.type)}</span>
+              \${statusBadge}
+            </div>
+            \${h.diagnosis ? '<div class="record-meta">การวินิจฉัย: ' + escapeHtml(h.diagnosis) + '</div>' : ''}
+            \${h.symptoms ? '<div class="record-meta">อาการ: ' + escapeHtml(h.symptoms) + '</div>' : ''}
+            <div class="record-date">\${h.recordDate}</div>
+          </div>
+          \${toggleBtn}
+        </div>
       </div>
-    \`).join('') + '</div>';
+    \`;
+    }).join('') + '</div>';
   } catch (err) { toast(err.message, 'error'); }
 }
 
 function typeLabel(t) {
   return { illness: 'เจ็บป่วย', injury: 'บาดเจ็บ', checkup: 'ตรวจสุขภาพ', surgery: 'ผ่าตัด' }[t] || t;
+}
+
+async function toggleMedStatus(id, status) {
+  try {
+    await api('/api/cats/' + CURRENT_CAT.id + '/medical-history/' + id + '/status', { method: 'PATCH', body: JSON.stringify({ status }) });
+    loadMedicalHistory();
+  } catch (err) { toast(err.message, 'error'); }
 }
 
 function modal(title, body, onSubmit, submitLabel = 'บันทึก') {

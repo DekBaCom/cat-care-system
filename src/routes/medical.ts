@@ -37,6 +37,15 @@ medicalRoutes.get('/cats/:catId/medications', async (c) => {
   catch (error) { const { statusCode, body } = errorToResponse(error as Error); return c.json(body, statusCode as 401 | 404 | 500); }
 });
 
+medicalRoutes.patch('/cats/:catId/medical-history/:id/status', async (c) => {
+  try {
+    const { status } = await c.req.json() as { status: string };
+    if (!['treating', 'recovered'].includes(status)) return c.json({ success: false, error: 'status ต้องเป็น treating หรือ recovered' }, 400);
+    await MedicalService.updateStatus(c.req.param('id'), c.req.param('catId'), getUserId(c), status, c.env);
+    return c.json({ success: true });
+  } catch (error) { const { statusCode, body } = errorToResponse(error as Error); return c.json(body, statusCode as 401 | 404 | 500); }
+});
+
 medicalRoutes.put('/cats/:catId/medications/:medId', async (c) => {
   try { return c.json({ success: true, data: await MedicalService.completeMedication(c.req.param('medId'), c.req.param('catId'), getUserId(c), c.env) }); }
   catch (error) { const { statusCode, body } = errorToResponse(error as Error); return c.json(body, statusCode as 401 | 404 | 500); }
