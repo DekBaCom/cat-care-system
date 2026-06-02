@@ -1524,9 +1524,10 @@ async function loadMedicalHistory() {
       const statusBadge = isTreating
         ? '<span style="background:#fed7d7;color:#c53030;font-size:.72rem;font-weight:700;padding:.2rem .55rem;border-radius:20px">🏥 กำลังรักษา</span>'
         : '<span style="background:#c6f6d5;color:#276749;font-size:.72rem;font-weight:700;padding:.2rem .55rem;border-radius:20px">✅ หายแล้ว</span>';
+      const nextStatus = isTreating ? 'recovered' : 'treating';
       const toggleBtn = isTreating
-        ? '<button class="btn btn-sm" style="font-size:.72rem;padding:.2rem .55rem;background:#48bb78;color:white;border:none" onclick="toggleMedStatus(\'' + h.id + '\',\'recovered\')">✅ หายแล้ว</button>'
-        : '<button class="btn btn-sm btn-secondary" style="font-size:.72rem;padding:.2rem .55rem" onclick="toggleMedStatus(\'' + h.id + '\',\'treating\')">🏥 กำลังรักษา</button>';
+        ? '<button class="btn btn-sm" style="font-size:.72rem;padding:.2rem .55rem;background:#48bb78;color:white;border:none" data-id="' + h.id + '" data-status="recovered" onclick="toggleMedStatus(this.dataset.id,this.dataset.status)">✅ หายแล้ว</button>'
+        : '<button class="btn btn-sm btn-secondary" style="font-size:.72rem;padding:.2rem .55rem" data-id="' + h.id + '" data-status="treating" onclick="toggleMedStatus(this.dataset.id,this.dataset.status)">🏥 กำลังรักษา</button>';
       return \`
       <div class="record">
         <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem">
