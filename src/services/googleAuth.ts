@@ -98,8 +98,20 @@ function rowToSafeUser(r: UserRow): Omit<User, 'passwordHash'> {
   };
 }
 
+function isEmailAllowed(email: string, allowlist: string | undefined): boolean {
+  if (!allowlist) return true;
+  const allowed = allowlist.split(',').map((s) => s.trim().toLowerCase()).filter(Boolean);
+  if (allowed.length === 0) return true;
+  const target = email.toLowerCase();
+  return allowed.some((entry) => entry.startsWith('@') ? target.endsWith(entry) : target === entry);
+}
+
 export async function loginOrRegisterGoogleUser(idToken: string, env: Env): Promise<{ user: Omit<User, 'passwordHash'>; token: string }> {
   const payload = await verifyGoogleIdToken(idToken, env);
+
+  if (!isEmailAllowed(payload.email, env.ALLOWED_EMAILS)) {
+    throw new Error('อีเมลนี้ไม่ได้รับอนุญาตให้เข้าใช้งานระบบ');
+  }
 
   let row = await queryOne<UserRow>(env.DB, 'SELECT * FROM users WHERE email = ?', [payload.email]);
 
