@@ -50,7 +50,9 @@ export class LineService {
     }
 
     let reply = '';
-    if (text === '/my_cats') {
+    if (text === '/myid') {
+      reply = `📋 LINE User ID ของคุณ:\n${lineUserId}\n\nนำ User ID นี้ไปกรอกที่แอป ⚙️ ตั้งค่า LINE`;
+    } else if (text === '/my_cats') {
       const cats = await query<{ name: string }>(env.DB, 'SELECT name FROM cats', []);
       reply = cats.length > 0 ? `🐱 แมวทั้งหมด:\n${cats.map((c, i) => `${i + 1}. ${c.name}`).join('\n')}` : 'ยังไม่มีข้อมูลแมว';
     } else if (text === '/vaccines_due') {
@@ -60,7 +62,7 @@ export class LineService {
       const rows = await query<{ medicine_name: string; cat_name: string }>(env.DB, `SELECT m.medicine_name, c.name AS cat_name FROM medications m JOIN cats c ON m.cat_id = c.id WHERE m.is_active = 1`, []);
       reply = rows.length > 0 ? `💊 ยาที่ต้องให้:\n${rows.map((r) => `• ${r.cat_name}: ${r.medicine_name}`).join('\n')}` : 'ไม่มียาที่ต้องให้ในขณะนี้';
     } else if (text === '/help') {
-      reply = '📋 คำสั่งที่ใช้ได้:\n/my_cats - รายชื่อแมว\n/vaccines_due - วัคซีนใกล้หมดอายุ\n/medications - ยาที่ต้องให้\n/help - คำสั่งทั้งหมด';
+      reply = '📋 คำสั่งที่ใช้ได้:\n/my_cats - รายชื่อแมว\n/vaccines_due - วัคซีนใกล้หมดอายุ\n/medications - ยาที่ต้องให้\n/myid - แสดง LINE User ID\n/help - คำสั่งทั้งหมด';
     } else {
       reply = 'ไม่เข้าใจคำสั่ง พิมพ์ /help เพื่อดูคำสั่งทั้งหมด';
     }

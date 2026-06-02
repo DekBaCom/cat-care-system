@@ -638,42 +638,88 @@ async function openLineSettings() {
   infoModal('⚙️ ตั้งค่า LINE Notification', '<div style="text-align:center;padding:1.5rem;color:#a0aec0">กำลังตรวจสอบ...</div>');
   try {
     const r = await api('/api/auth/line/status');
-    const connected = r.data.connected;
-    const el = document.getElementById('info-modal-body');
-    if (!el) return;
-    if (connected) {
-      el.innerHTML = \`
-        <div style="text-align:center;padding:1rem;background:#c6f6d5;border-radius:10px;margin-bottom:1rem">
-          <div style="font-size:2rem">✅</div>
-          <div style="font-weight:700;color:#22543d;margin-top:.3rem">เชื่อมต่อ LINE แล้ว</div>
-          <div style="font-size:.85rem;color:#276749;margin-top:.2rem">คุณจะได้รับการแจ้งเตือนผ่าน LINE</div>
-        </div>
-        <div style="background:#f7fafc;border-radius:10px;padding:1rem;margin-bottom:1rem;font-size:.85rem;color:#4a5568">
-          <strong>📋 คำสั่ง LINE Bot:</strong><br>
-          /my_cats — รายชื่อแมว<br>
-          /vaccines_due — วัคซีนใกล้หมดอายุ<br>
-          /medications — ยาที่ต้องให้<br>
-          /help — คำสั่งทั้งหมด
-        </div>
-        <button class="btn btn-danger btn-block" onclick="disconnectLine()">ยกเลิกการเชื่อมต่อ LINE</button>
-      \`;
-    } else {
-      el.innerHTML = \`
-        <div style="text-align:center;padding:1rem;background:#fff5f5;border-radius:10px;margin-bottom:1rem">
-          <div style="font-size:2rem">📵</div>
-          <div style="font-weight:700;color:#742a2a;margin-top:.3rem">ยังไม่ได้เชื่อมต่อ LINE</div>
-        </div>
-        <div style="background:#ebf4ff;border-radius:10px;padding:1rem;margin-bottom:1rem;font-size:.85rem;color:#2b6cb0">
-          <strong>วิธีเชื่อมต่อ:</strong><br>
-          1. กด <b>สร้างโค้ด</b> ด้านล่าง<br>
-          2. เพิ่ม LINE Bot เป็นเพื่อน (ถ้ายังไม่ได้เพิ่ม)<br>
-          3. ส่งโค้ด 6 หลักให้ LINE Bot
-        </div>
-        <button class="btn btn-block" onclick="generateLineCode()" id="gen-code-btn">สร้างโค้ด 6 หลัก</button>
-        <div id="line-code-result" style="margin-top:1rem"></div>
-      \`;
-    }
+    renderLineSettingsContent(r.data.connected, r.data.lineUserId);
   } catch (err) { toast(err.message, 'error'); }
+}
+
+function renderLineSettingsContent(connected, lineUserId) {
+  const el = document.getElementById('info-modal-body');
+  if (!el) return;
+
+  const maskId = (id) => id ? id.slice(0, 4) + '••••••••••••••••••••••••••••••' + id.slice(-4) : '';
+
+  const connectedBlock = connected ? \`
+    <div style="background:#f0fff4;border-radius:10px;padding:.9rem 1rem;margin-bottom:1rem;display:flex;align-items:center;gap:.8rem">
+      <span style="font-size:1.4rem">✅</span>
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:700;color:#22543d;font-size:.9rem">เชื่อมต่อ LINE แล้ว</div>
+        <div style="font-size:.75rem;color:#718096;margin-top:.1rem;word-break:break-all">\${maskId(lineUserId)}</div>
+      </div>
+      <button class="btn btn-sm" onclick="sendLineTest()" style="white-space:nowrap">📨 ทดสอบ</button>
+    </div>
+    <div id="line-test-result" style="margin-bottom:.8rem"></div>
+  \` : '';
+
+  el.innerHTML = \`
+    \${connectedBlock}
+
+    <div style="background:#f7fafc;border-radius:10px;padding:1rem;margin-bottom:1rem">
+      <div style="font-weight:700;font-size:.85rem;color:#4a5568;margin-bottom:.7rem">
+        \${connected ? '🔄 เปลี่ยน LINE User ID' : '🔗 กรอก LINE User ID'}
+      </div>
+      <div style="font-size:.8rem;color:#718096;margin-bottom:.7rem;line-height:1.6">
+        วิธีหา LINE User ID:<br>
+        1. เพิ่ม LINE Bot เป็นเพื่อน → Bot จะส่ง User ID ให้ทันที<br>
+        2. หรือส่ง <code style="background:#e2e8f0;padding:.1rem .3rem;border-radius:4px">/myid</code> ใน LINE Bot
+      </div>
+      <div style="display:flex;gap:.5rem">
+        <input id="line-uuid-input" placeholder="Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" style="flex:1;border:1px solid #e2e8f0;border-radius:8px;padding:.65rem .8rem;font-size:.82rem;font-family:monospace" maxlength="33">
+        <button class="btn btn-sm" onclick="saveLineUuid()" id="save-uuid-btn">💾 บันทึก</button>
+      </div>
+      <div id="line-uuid-error" style="color:#e53e3e;font-size:.78rem;margin-top:.4rem"></div>
+    </div>
+
+    <details style="margin-bottom:1rem">
+      <summary style="font-size:.82rem;color:#718096;cursor:pointer;padding:.3rem 0">📋 คำสั่ง LINE Bot ที่ใช้ได้</summary>
+      <div style="background:#f7fafc;border-radius:8px;padding:.8rem;margin-top:.5rem;font-size:.82rem;color:#4a5568;line-height:1.8">
+        /myid — แสดง LINE User ID<br>
+        /my_cats — รายชื่อแมว<br>
+        /vaccines_due — วัคซีนใกล้หมดอายุ<br>
+        /medications — ยาที่ต้องให้<br>
+        /help — คำสั่งทั้งหมด
+      </div>
+    </details>
+
+    \${connected ? '<button class="btn btn-secondary btn-block" style="font-size:.82rem;color:#e53e3e;border-color:#e53e3e" onclick="disconnectLine()">🗑 ยกเลิกการเชื่อมต่อ LINE</button>' : ''}
+  \`;
+}
+
+async function saveLineUuid() {
+  const input = document.getElementById('line-uuid-input');
+  const errEl = document.getElementById('line-uuid-error');
+  const btn = document.getElementById('save-uuid-btn');
+  const val = input.value.trim();
+  errEl.textContent = '';
+  if (!val) { errEl.textContent = 'กรุณากรอก LINE User ID'; return; }
+  if (!/^U[0-9a-fA-F]{32}$/.test(val)) { errEl.textContent = 'รูปแบบไม่ถูกต้อง (ต้องเป็น U + 32 ตัวอักษร เช่น Uabc123...)'; return; }
+  btn.disabled = true; btn.textContent = 'กำลังบันทึก...';
+  try {
+    await api('/api/auth/line/connect-uuid', { method: 'POST', body: JSON.stringify({ lineUserId: val }) });
+    toast('บันทึก LINE User ID สำเร็จ');
+    renderLineSettingsContent(true, val);
+  } catch (err) { errEl.textContent = err.message; }
+  finally { btn.disabled = false; btn.textContent = '💾 บันทึก'; }
+}
+
+async function sendLineTest() {
+  const resultEl = document.getElementById('line-test-result');
+  if (resultEl) resultEl.innerHTML = '<div style="font-size:.82rem;color:#718096;padding:.3rem 0">กำลังส่ง...</div>';
+  try {
+    await api('/api/auth/line/test', { method: 'POST' });
+    if (resultEl) resultEl.innerHTML = '<div style="background:#c6f6d5;border-radius:8px;padding:.5rem .8rem;font-size:.82rem;color:#22543d">✅ ส่งข้อความทดสอบสำเร็จ — เช็ค LINE ของคุณ</div>';
+  } catch (err) {
+    if (resultEl) resultEl.innerHTML = \`<div style="background:#fed7d7;border-radius:8px;padding:.5rem .8rem;font-size:.82rem;color:#742a2a">❌ \${escapeHtml(err.message)}</div>\`;
+  }
 }
 
 async function generateLineCode() {

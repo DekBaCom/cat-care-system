@@ -49,8 +49,8 @@ export class AuthService {
     await execute(env.DB, 'UPDATE users SET line_user_id = NULL, updated_at = ? WHERE id = ?', [new Date().toISOString(), userId]);
   }
 
-  static async getLineStatus(userId: string, env: Env): Promise<{ connected: boolean }> {
+  static async getLineStatus(userId: string, env: Env): Promise<{ connected: boolean; lineUserId?: string }> {
     const row = await queryOne<{ line_user_id: string | null }>(env.DB, 'SELECT line_user_id FROM users WHERE id = ?', [userId]);
-    return { connected: !!row?.line_user_id };
+    return { connected: !!row?.line_user_id, lineUserId: row?.line_user_id ?? undefined };
   }
 }

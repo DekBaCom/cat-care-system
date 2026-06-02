@@ -14,8 +14,12 @@ lineWebhook.post('/', async (c) => {
     if (btoa(String.fromCharCode(...new Uint8Array(sig))) !== signature) return c.json({ error: 'Invalid signature' }, 403);
     const body = JSON.parse(rawBody) as { events: Array<{ type: string; source: { userId: string }; message: { text: string } }> };
     for (const event of body.events) {
-      if (event.type === 'message') await LineService.handleLineMessage(event, c.env);
-      else if (event.type === 'follow') await fetch('https://api.line.me/v2/bot/message/push', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${c.env.LINE_CHANNEL_ACCESS_TOKEN}` }, body: JSON.stringify({ to: event.source.userId, messages: [{ type: 'text', text: 'ยินดีต้อนรับสู่ Cat Care System! พิมพ์ /help เพื่อดูคำสั่งทั้งหมด' }] }) });
+      if (event.type === 'message') {
+        await LineService.handleLineMessage(event, c.env);
+      } else if (event.type === 'follow') {
+        const uid = event.source.userId;
+        await LineService.sendMessage(uid, `🐱 ยินดีต้อนรับสู่ Cat Care System!\n\n📋 LINE User ID ของคุณ:\n${uid}\n\nนำ User ID นี้ไปกรอกที่แอป:\n⚙️ ตั้งค่า → LINE User ID\n\nหรือส่งโค้ด 6 หลักจากแอปมาที่นี่ก็ได้\n\nพิมพ์ /help เพื่อดูคำสั่งทั้งหมด`, c.env);
+      }
     }
     return c.json({ status: 'ok' }, 200);
   } catch (error) { console.error('[LINE Webhook]', error); return c.json({ status: 'ok' }, 200); }

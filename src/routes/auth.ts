@@ -67,3 +67,32 @@ authRoutes.get('/line/status', authMiddleware, async (c) => {
     return c.json({ success: true, data: await AuthService.getLineStatus(getUserId(c), c.env) });
   } catch (error) { const { statusCode, body } = errorToResponse(error as Error); return c.json(body, statusCode as 401 | 500); }
 });
+
+authRoutes.post('/line/connect-uuid', authMiddleware, async (c) => {
+  try {
+    const { lineUserId } = await c.req.json() as { lineUserId: string };
+    if (!lineUserId || !/^U[0-9a-f]{32}$/i.test(lineUserId.trim())) {
+      return c.json({ success: false, error: 'LINE User ID ไม่ถูกต้อง (ต้องขึ้นต้นด้วย U ตามด้วยตัวเลข/ตัวอักษร 32 ตัว)' }, 400);
+    }
+    return c.json({ success: true, data: await AuthService.connectLineAccount(getUserId(c), lineUserId.trim(), c.env) });
+  } catch (error) { const { statusCode, body } = errorToResponse(error as Error); return c.json(body, statusCode as 400 | 401 | 500); }
+});
+
+authRoutes.post('/line/test', authMiddleware, async (c) => {
+  try {
+    const status = await AuthService.getLineStatus(getUserId(c), c.env);
+    if (!status.connected || !status.lineUserId) {
+      return c.json({ success: false, error: 'ยังไม่ได้เชื่อมต่อ LINE' }, 400);
+    }
+    const res = await fetch('https://api.line.me/v2/bot/message/push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${c.env.LINE_CHANNEL_ACCESS_TOKEN}` },
+      body: JSON.stringify({ to: status.lineUserId, messages: [{ type: 'text', text: '✅ Cat Care System\nทดสอบการแจ้งเตือนผ่าน LINE สำเร็จ! 🐱\nคุณจะได้รับการแจ้งเตือนวัคซีนและยาผ่านช่องนี้' }] }),
+    });
+    if (!res.ok) {
+      const err = await res.json() as { message?: string };
+      return c.json({ success: false, error: `LINE API error: ${err.message ?? res.status}` }, 400);
+    }
+    return c.json({ success: true, message: 'ส่งข้อความทดสอบสำเร็จ' });
+  } catch (error) { const { statusCode, body } = errorToResponse(error as Error); return c.json(body, statusCode as 401 | 500); }
+});
