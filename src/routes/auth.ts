@@ -45,3 +45,25 @@ authRoutes.post('/line/connect', authMiddleware, async (c) => {
     return c.json({ success: true, data: await AuthService.connectLineAccount(getUserId(c), lineUserId, c.env) });
   } catch (error) { const { statusCode, body } = errorToResponse(error as Error); return c.json(body, statusCode as 400 | 401 | 500); }
 });
+
+authRoutes.post('/line/generate-code', authMiddleware, async (c) => {
+  try {
+    const userId = getUserId(c);
+    const code = String(Math.floor(100000 + Math.random() * 900000));
+    await c.env.KV_CACHE.put(`LINE_CONNECT_CODE:${code}`, userId, { expirationTtl: 600 });
+    return c.json({ success: true, data: { code } });
+  } catch (error) { const { statusCode, body } = errorToResponse(error as Error); return c.json(body, statusCode as 401 | 500); }
+});
+
+authRoutes.delete('/line/disconnect', authMiddleware, async (c) => {
+  try {
+    await AuthService.disconnectLine(getUserId(c), c.env);
+    return c.json({ success: true });
+  } catch (error) { const { statusCode, body } = errorToResponse(error as Error); return c.json(body, statusCode as 401 | 500); }
+});
+
+authRoutes.get('/line/status', authMiddleware, async (c) => {
+  try {
+    return c.json({ success: true, data: await AuthService.getLineStatus(getUserId(c), c.env) });
+  } catch (error) { const { statusCode, body } = errorToResponse(error as Error); return c.json(body, statusCode as 401 | 500); }
+});

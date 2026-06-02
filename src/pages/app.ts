@@ -42,8 +42,20 @@ label{display:block;font-size:.85rem;font-weight:600;color:#4a5568;margin-bottom
 .navbar{background:white;padding:1rem 1.5rem;display:flex;justify-content:space-between;align-items:center;box-shadow:0 1px 3px rgba(0,0,0,.06);position:sticky;top:0;z-index:10}
 .brand{display:flex;align-items:center;gap:.5rem;font-weight:700;font-size:1.1rem;color:#2d3748}
 .brand-emoji{font-size:1.6rem}
-.user-menu{display:flex;align-items:center;gap:1rem}
+.user-menu{display:flex;align-items:center;gap:.6rem}
 .user-name{font-size:.9rem;color:#4a5568;font-weight:600}
+.bell-btn{position:relative;background:none;border:none;cursor:pointer;font-size:1.4rem;padding:.3rem;line-height:1;transition:transform .15s}
+.bell-btn:hover{transform:scale(1.15)}
+.bell-badge{position:absolute;top:-2px;right:-4px;background:#f56565;color:white;font-size:.6rem;font-weight:700;border-radius:10px;padding:1px 4px;min-width:16px;text-align:center;line-height:14px}
+.notif-panel{position:absolute;top:calc(100% + 8px);right:0;background:white;border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.15);width:320px;max-height:420px;overflow-y:auto;z-index:200;border:1px solid #e2e8f0}
+.notif-panel-head{display:flex;justify-content:space-between;align-items:center;padding:.8rem 1rem;border-bottom:1px solid #e2e8f0;font-weight:700;font-size:.9rem;color:#2d3748;position:sticky;top:0;background:white}
+.notif-item{padding:.75rem 1rem;border-bottom:1px solid #f7fafc;cursor:default}
+.notif-item.unread{background:#ebf4ff}
+.notif-item-title{font-size:.85rem;font-weight:600;color:#2d3748;margin-bottom:.2rem}
+.notif-item-msg{font-size:.8rem;color:#718096}
+.notif-item-time{font-size:.7rem;color:#a0aec0;margin-top:.2rem}
+.notif-empty{text-align:center;padding:2rem;color:#a0aec0;font-size:.85rem}
+.notif-wrap{position:relative}
 .main{max-width:1100px;margin:0 auto;padding:1.5rem}
 
 /* Summary */
@@ -315,6 +327,11 @@ input,select,textarea{font-size:16px} /* Prevents iOS zoom on focus */
     <div class="brand"><span class="brand-emoji">🐱</span> Cat Care System</div>
     <div class="user-menu">
       <span class="user-name" id="user-name"></span>
+      <div class="notif-wrap">
+        <button class="bell-btn" onclick="toggleNotifPanel()" title="การแจ้งเตือน" id="bell-btn">🔔<span class="bell-badge hidden" id="bell-badge">0</span></button>
+        <div class="notif-panel hidden" id="notif-panel"></div>
+      </div>
+      <button class="btn btn-secondary btn-sm" onclick="openLineSettings()" title="ตั้งค่า LINE">⚙️</button>
       <button class="btn btn-secondary btn-sm" onclick="logout()">ออกจากระบบ</button>
     </div>
   </nav>
@@ -521,6 +538,174 @@ function logout() {
   document.getElementById('app-screen').classList.add('hidden');
 }
 
+// ─── Notifications ───────────────────────────────────────────────────────────
+
+let NOTIF_OPEN = false;
+
+async function loadNotifications() {
+  try {
+    const r = await api('/api/notifications');
+    const { notifications, unreadCount } = r.data;
+    const badge = document.getElementById('bell-badge');
+    if (unreadCount > 0) { badge.textContent = unreadCount > 9 ? '9+' : String(unreadCount); badge.classList.remove('hidden'); }
+    else badge.classList.add('hidden');
+    if (NOTIF_OPEN) renderNotifPanel(notifications);
+    return notifications;
+  } catch { return []; }
+}
+
+function toggleNotifPanel() {
+  NOTIF_OPEN = !NOTIF_OPEN;
+  const panel = document.getElementById('notif-panel');
+  if (NOTIF_OPEN) {
+    panel.classList.remove('hidden');
+    loadNotifications().then(n => renderNotifPanel(n));
+    markAllNotifRead();
+  } else {
+    panel.classList.add('hidden');
+  }
+}
+
+async function markAllNotifRead() {
+  try { await api('/api/notifications/read-all', { method: 'POST' }); loadNotifications(); } catch {}
+}
+
+function renderNotifPanel(notifications) {
+  const panel = document.getElementById('notif-panel');
+  const typeIcon = { vaccine: '💉', medication: '💊', checkup: '🏥', diet: '🍽️', reminder: '🔔' };
+  const items = notifications.length === 0
+    ? '<div class="notif-empty">ไม่มีการแจ้งเตือน</div>'
+    : notifications.map(n => \`
+        <div class="notif-item\${n.isRead ? '' : ' unread'}">
+          <div class="notif-item-title">\${typeIcon[n.type] || '🔔'} \${escapeHtml(n.title)}</div>
+          <div class="notif-item-msg">\${escapeHtml(n.message)}</div>
+          <div class="notif-item-time">\${timeAgo(n.createdAt)}</div>
+        </div>
+      \`).join('');
+  panel.innerHTML = \`
+    <div class="notif-panel-head">
+      <span>🔔 การแจ้งเตือน</span>
+      <button onclick="toggleNotifPanel()" style="background:none;border:none;cursor:pointer;font-size:1.1rem;color:#a0aec0">✕</button>
+    </div>
+    \${items}
+  \`;
+}
+
+function timeAgo(iso) {
+  const diff = Date.now() - new Date(iso).getTime();
+  const m = Math.floor(diff / 60000);
+  if (m < 1) return 'เมื่อกี้';
+  if (m < 60) return m + ' นาทีที่แล้ว';
+  const h = Math.floor(m / 60);
+  if (h < 24) return h + ' ชั่วโมงที่แล้ว';
+  return Math.floor(h / 24) + ' วันที่แล้ว';
+}
+
+document.addEventListener('click', (e) => {
+  if (NOTIF_OPEN && !e.target.closest('.notif-wrap')) {
+    NOTIF_OPEN = false;
+    document.getElementById('notif-panel')?.classList.add('hidden');
+  }
+});
+
+// ─── Google Calendar URL ──────────────────────────────────────────────────────
+
+function buildGCalUrl(title, dateStr, details) {
+  const d = dateStr.replace(/-/g, '');
+  return 'https://calendar.google.com/calendar/render?action=TEMPLATE'
+    + '&text=' + encodeURIComponent(title)
+    + '&dates=' + d + '/' + d
+    + '&details=' + encodeURIComponent(details);
+}
+
+// ─── LINE Settings ────────────────────────────────────────────────────────────
+
+function infoModal(title, bodyHtml) {
+  document.getElementById('modal-root').innerHTML = \`
+    <div class="modal-bg" onclick="if(event.target===this)closeModal()">
+      <div class="modal">
+        <div class="modal-head">
+          <div class="modal-title">\${title}</div>
+          <button class="modal-close" onclick="closeModal()">×</button>
+        </div>
+        <div id="info-modal-body">\${bodyHtml}</div>
+      </div>
+    </div>
+  \`;
+}
+
+async function openLineSettings() {
+  infoModal('⚙️ ตั้งค่า LINE Notification', '<div style="text-align:center;padding:1.5rem;color:#a0aec0">กำลังตรวจสอบ...</div>');
+  try {
+    const r = await api('/api/auth/line/status');
+    const connected = r.data.connected;
+    const el = document.getElementById('info-modal-body');
+    if (!el) return;
+    if (connected) {
+      el.innerHTML = \`
+        <div style="text-align:center;padding:1rem;background:#c6f6d5;border-radius:10px;margin-bottom:1rem">
+          <div style="font-size:2rem">✅</div>
+          <div style="font-weight:700;color:#22543d;margin-top:.3rem">เชื่อมต่อ LINE แล้ว</div>
+          <div style="font-size:.85rem;color:#276749;margin-top:.2rem">คุณจะได้รับการแจ้งเตือนผ่าน LINE</div>
+        </div>
+        <div style="background:#f7fafc;border-radius:10px;padding:1rem;margin-bottom:1rem;font-size:.85rem;color:#4a5568">
+          <strong>📋 คำสั่ง LINE Bot:</strong><br>
+          /my_cats — รายชื่อแมว<br>
+          /vaccines_due — วัคซีนใกล้หมดอายุ<br>
+          /medications — ยาที่ต้องให้<br>
+          /help — คำสั่งทั้งหมด
+        </div>
+        <button class="btn btn-danger btn-block" onclick="disconnectLine()">ยกเลิกการเชื่อมต่อ LINE</button>
+      \`;
+    } else {
+      el.innerHTML = \`
+        <div style="text-align:center;padding:1rem;background:#fff5f5;border-radius:10px;margin-bottom:1rem">
+          <div style="font-size:2rem">📵</div>
+          <div style="font-weight:700;color:#742a2a;margin-top:.3rem">ยังไม่ได้เชื่อมต่อ LINE</div>
+        </div>
+        <div style="background:#ebf4ff;border-radius:10px;padding:1rem;margin-bottom:1rem;font-size:.85rem;color:#2b6cb0">
+          <strong>วิธีเชื่อมต่อ:</strong><br>
+          1. กด <b>สร้างโค้ด</b> ด้านล่าง<br>
+          2. เพิ่ม LINE Bot เป็นเพื่อน (ถ้ายังไม่ได้เพิ่ม)<br>
+          3. ส่งโค้ด 6 หลักให้ LINE Bot
+        </div>
+        <button class="btn btn-block" onclick="generateLineCode()" id="gen-code-btn">สร้างโค้ด 6 หลัก</button>
+        <div id="line-code-result" style="margin-top:1rem"></div>
+      \`;
+    }
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function generateLineCode() {
+  const btn = document.getElementById('gen-code-btn');
+  if (btn) { btn.disabled = true; btn.textContent = 'กำลังสร้าง...'; }
+  try {
+    const r = await api('/api/auth/line/generate-code', { method: 'POST' });
+    const code = r.data.code;
+    const el = document.getElementById('line-code-result');
+    if (el) el.innerHTML = \`
+      <div style="text-align:center;background:#f7fafc;border-radius:10px;padding:1.2rem">
+        <div style="font-size:.8rem;color:#718096;margin-bottom:.5rem">ส่งโค้ดนี้ให้ LINE Bot ภายใน 10 นาที</div>
+        <div style="font-size:2.5rem;font-weight:800;letter-spacing:.4rem;color:#2d3748;background:white;padding:.8rem 1.5rem;border-radius:8px;border:2px dashed #667eea;display:inline-block">\${code}</div>
+        <div style="margin-top:.8rem">
+          <button class="btn btn-sm" onclick="navigator.clipboard.writeText('\${code}').then(()=>toast('คัดลอกแล้ว'))">📋 คัดลอกโค้ด</button>
+        </div>
+        <div style="font-size:.75rem;color:#a0aec0;margin-top:.6rem">โค้ดจะหมดอายุใน 10 นาที</div>
+      </div>
+    \`;
+  } catch (err) { toast(err.message, 'error'); }
+  finally { if (btn) { btn.disabled = false; btn.textContent = 'สร้างโค้ดใหม่'; } }
+}
+
+async function disconnectLine() {
+  if (!confirm('ยืนยันยกเลิกการเชื่อมต่อ LINE?')) return;
+  try {
+    await api('/api/auth/line/disconnect', { method: 'DELETE' });
+    toast('ยกเลิกการเชื่อมต่อ LINE แล้ว');
+    closeModal();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
 async function showApp() {
   document.getElementById('auth-screen').classList.add('hidden');
   document.getElementById('app-screen').classList.remove('hidden');
@@ -528,6 +713,8 @@ async function showApp() {
   document.getElementById('user-name').textContent = '👋 ' + firstName;
   await loadDashboard();
   await loadCats();
+  loadNotifications();
+  setInterval(loadNotifications, 60000);
 }
 
 async function loadDashboard() {
@@ -1082,9 +1269,14 @@ async function loadVaccinations() {
     if (r.data.vaccinations.length === 0) { list.innerHTML = '<div class="empty">ยังไม่มีข้อมูลวัคซีน</div>'; return; }
     list.innerHTML = '<div class="records-list">' + r.data.vaccinations.map(v => \`
       <div class="record">
-        <div class="record-title">💉 \${escapeHtml(v.vaccineName)}</div>
-        <div class="record-meta">ฉีดวันที่ \${v.vaccinationDate} \${v.expirationDate ? '· หมดอายุ ' + v.expirationDate : ''}</div>
-        \${v.clinicName ? '<div class="record-meta">📍 ' + escapeHtml(v.clinicName) + '</div>' : ''}
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem">
+          <div style="flex:1">
+            <div class="record-title">💉 \${escapeHtml(v.vaccineName)}</div>
+            <div class="record-meta">ฉีดวันที่ \${v.vaccinationDate} \${v.expirationDate ? '· หมดอายุ ' + v.expirationDate : ''}</div>
+            \${v.clinicName ? '<div class="record-meta">📍 ' + escapeHtml(v.clinicName) + '</div>' : ''}
+          </div>
+          \${v.expirationDate ? '<a href="' + buildGCalUrl('วัคซีน ' + v.vaccineName + ' (' + CURRENT_CAT.name + ')', v.expirationDate, 'วัคซีน ' + v.vaccineName + ' หมดอายุ\\nแมว: ' + CURRENT_CAT.name + (v.clinicName ? '\\nคลินิก: ' + v.clinicName : '')) + '" target="_blank" class="btn btn-sm btn-secondary" style="white-space:nowrap;font-size:.75rem;padding:.3rem .6rem" title="เพิ่มเข้า Google Calendar">📅 Calendar</a>' : ''}
+        </div>
       </div>
     \`).join('') + '</div>';
   } catch (err) { toast(err.message, 'error'); }

@@ -44,4 +44,13 @@ export class AuthService {
     const { passwordHash: _ph, ...safeUser } = rowToUser(row);
     return safeUser;
   }
+
+  static async disconnectLine(userId: string, env: Env): Promise<void> {
+    await execute(env.DB, 'UPDATE users SET line_user_id = NULL, updated_at = ? WHERE id = ?', [new Date().toISOString(), userId]);
+  }
+
+  static async getLineStatus(userId: string, env: Env): Promise<{ connected: boolean }> {
+    const row = await queryOne<{ line_user_id: string | null }>(env.DB, 'SELECT line_user_id FROM users WHERE id = ?', [userId]);
+    return { connected: !!row?.line_user_id };
+  }
 }
