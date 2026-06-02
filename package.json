@@ -1,0 +1,45 @@
+{
+  "name": "cat-care-system",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy",
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "lint": "eslint src --ext .ts",
+    "lint:fix": "eslint src --ext .ts --fix",
+    "type-check": "tsc --noEmit",
+    "db:migrate": "wrangler d1 execute cat-care-db --file=migrations/001_init.sql",
+    "db:migrate:remote": "wrangler d1 execute cat-care-db --remote --file=migrations/001_init.sql"
+  },
+  "dependencies": {
+    "hono": "^4.4.0",
+    "typescript": "^5.4.0",
+    "zod": "^3.23.0",
+    "uuid": "^9.0.1",
+    "dotenv": "^16.4.5"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240529.0",
+    "@types/jest": "^29.5.12",
+    "@types/node": "^20.14.0",
+    "@types/uuid": "^9.0.8",
+    "@typescript-eslint/eslint-plugin": "^7.12.0",
+    "@typescript-eslint/parser": "^7.12.0",
+    "eslint": "^8.57.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.4",
+    "wrangler": "^3.60.0"
+  },
+  "jest": {
+    "preset": "ts-jest",
+    "testEnvironment": "node",
+    "moduleNameMapper": {
+      "^(\\.{1,2}/.*)\\.js$": "$1"
+    },
+    "transform": {
+      "^.+\\.tsx?$": ["ts-jest", { "tsconfig": { "module": "commonjs" } }]
+    }
+  }
+}

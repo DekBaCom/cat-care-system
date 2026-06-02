@@ -1,0 +1,23 @@
+name = "cat-care-system"
+main = "src/index.ts"
+compatibility_date = "2024-09-23"
+compatibility_flags = ["nodejs_compat"]
+
+[triggers]
+crons = ["0 9 * * *", "0 18 * * *", "0 * * * *"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "cat-care-db"
+database_id = "36655293-0ba5-4eb1-a2a3-592466c09706"
+
+[[r2_buckets]]
+binding = "IMAGES"
+bucket_name = "cat-care-images"
+
+[[kv_namespaces]]
+binding = "KV_CACHE"
+id = "96dbace162804be18c1d20cd4c4bdffa"
+
+[vars]
+ENVIRONMENT = "production"
