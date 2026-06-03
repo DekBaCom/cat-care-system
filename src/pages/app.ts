@@ -929,7 +929,7 @@ async function loadDashboard() {
       <div class="section" style="margin-bottom:1.5rem">
         <div class="section-head">
           <div class="section-title">💉 วัคซีนใกล้ถึงกำหนด</div>
-          <span style="font-size:.78rem;color:#718096">\${vaccines.length} รายการ</span>
+          <span style="font-size:.78rem;color:#718096">\${vaccines.length} รายการ (30 วัน)</span>
         </div>
         <div>\${rows}</div>
       </div>
