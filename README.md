@@ -191,6 +191,9 @@ Connect your LINE account via **Settings → LINE** in the app (enter the 6-digi
 | `/my_cats` | List all your cats |
 | `/vaccines_due` | Vaccines due within the next 7 days |
 | `/medications` | Currently active medications |
+| `/dewormings_due` | Dewormings due within the next 7 days |
+| `/weights` | Latest recorded weight for each cat |
+| `/status` | Health summary: cat count, upcoming vaccines, active meds, due dewormings |
 | `/myid` | Show your LINE User ID |
 | `/help` | Show all available commands |
 

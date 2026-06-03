@@ -61,8 +61,22 @@ export class LineService {
     } else if (text === '/medications') {
       const rows = await query<{ medicine_name: string; cat_name: string }>(env.DB, `SELECT m.medicine_name, c.name AS cat_name FROM medications m JOIN cats c ON m.cat_id = c.id WHERE m.is_active = 1`, []);
       reply = rows.length > 0 ? `💊 ยาที่ต้องให้:\n${rows.map((r) => `• ${r.cat_name}: ${r.medicine_name}`).join('\n')}` : 'ไม่มียาที่ต้องให้ในขณะนี้';
+    } else if (text === '/dewormings_due') {
+      const rows = await query<{ product_name: string | null; next_due_date: string; cat_name: string }>(env.DB, `SELECT d.product_name, d.next_due_date, c.name AS cat_name FROM dewormings d JOIN cats c ON d.cat_id = c.id WHERE date(d.next_due_date) <= date('now', '+7 days') AND date(d.next_due_date) >= date('now') ORDER BY d.next_due_date ASC`, []);
+      reply = rows.length > 0 ? `🐛 การถ่ายพยาธิที่ต้องทำเร็วๆ นี้:\n${rows.map((r) => `• ${r.cat_name}${r.product_name ? ': ' + r.product_name : ''}\n  นัดถ่ายพยาธิ: ${r.next_due_date}`).join('\n')}` : 'ไม่มีการถ่ายพยาธิที่ต้องทำในช่วง 7 วันนี้';
+    } else if (text === '/weights') {
+      const rows = await query<{ cat_name: string; weight_kg: number; logged_date: string }>(env.DB, `SELECT c.name AS cat_name, w.weight_kg, w.logged_date FROM weight_logs w JOIN cats c ON w.cat_id = c.id WHERE w.id IN (SELECT id FROM weight_logs w2 WHERE w2.cat_id = w.cat_id ORDER BY logged_date DESC, created_at DESC LIMIT 1) ORDER BY c.name ASC`, []);
+      reply = rows.length > 0 ? `⚖️ น้ำหนักล่าสุด:\n${rows.map((r) => `• ${r.cat_name}: ${r.weight_kg} kg (${r.logged_date})`).join('\n')}` : 'ยังไม่มีข้อมูลน้ำหนัก';
+    } else if (text === '/status') {
+      const [cats, vaccines, meds, dewormings] = await Promise.all([
+        query<{ name: string }>(env.DB, `SELECT name FROM cats`, []),
+        query<{ count: number }>(env.DB, `SELECT COUNT(*) AS count FROM vaccinations WHERE date(expiration_date) <= date('now', '+7 days') AND date(expiration_date) >= date('now')`, []),
+        query<{ count: number }>(env.DB, `SELECT COUNT(*) AS count FROM medications WHERE is_active = 1`, []),
+        query<{ count: number }>(env.DB, `SELECT COUNT(*) AS count FROM dewormings WHERE date(next_due_date) <= date('now', '+7 days') AND date(next_due_date) >= date('now')`, []),
+      ]);
+      reply = `📊 สรุปสุขภาพแมว\n🐱 แมวทั้งหมด: ${cats.length} ตัว\n💉 วัคซีนใกล้ถึงกำหนด: ${vaccines[0]?.count ?? 0} รายการ\n💊 ยาที่ต้องให้: ${meds[0]?.count ?? 0} รายการ\n🐛 ถ่ายพยาธิใกล้ถึงกำหนด: ${dewormings[0]?.count ?? 0} รายการ`;
     } else if (text === '/help') {
-      reply = '📋 คำสั่งที่ใช้ได้:\n/my_cats - รายชื่อแมว\n/vaccines_due - วัคซีนใกล้หมดอายุ\n/medications - ยาที่ต้องให้\n/myid - แสดง LINE User ID\n/help - คำสั่งทั้งหมด';
+      reply = '📋 คำสั่งที่ใช้ได้:\n/my_cats - รายชื่อแมว\n/vaccines_due - วัคซีนใกล้หมดอายุ\n/medications - ยาที่ต้องให้\n/dewormings_due - ถ่ายพยาธิใกล้ถึงกำหนด\n/weights - น้ำหนักล่าสุดของแมว\n/status - สรุปสุขภาพทั้งหมด\n/myid - แสดง LINE User ID\n/help - คำสั่งทั้งหมด';
     } else {
       reply = 'ไม่เข้าใจคำสั่ง พิมพ์ /help เพื่อดูคำสั่งทั้งหมด';
     }
