@@ -32,8 +32,8 @@ export class NotificationService {
        FROM vaccinations v
        JOIN cats c ON v.cat_id = c.id
        WHERE v.expiration_date IS NOT NULL
-         AND date(v.expiration_date) >= date('now')
-         AND date(v.expiration_date) <= date('now', '+31 days')`,
+         AND date(v.expiration_date) >= date('now', '+7 hours')
+         AND date(v.expiration_date) <= date('now', '+7 hours', '+31 days')`,
       []
     );
 
@@ -87,8 +87,8 @@ export class NotificationService {
        FROM dewormings d
        JOIN cats c ON d.cat_id = c.id
        WHERE d.next_due_date IS NOT NULL
-         AND date(d.next_due_date) >= date('now')
-         AND date(d.next_due_date) <= date('now', '+31 days')
+         AND date(d.next_due_date) >= date('now', '+7 hours')
+         AND date(d.next_due_date) <= date('now', '+7 hours', '+31 days')
          AND d.id = (
            SELECT d2.id FROM dewormings d2
            WHERE d2.cat_id = d.cat_id
@@ -146,7 +146,7 @@ export class NotificationService {
        FROM vaccinations v
        JOIN cats c ON v.cat_id = c.id
        WHERE v.expiration_date IS NOT NULL
-         AND date(v.expiration_date) < date('now')
+         AND date(v.expiration_date) < date('now', '+7 hours')
          AND v.id = (
            SELECT v2.id FROM vaccinations v2
            WHERE v2.cat_id = v.cat_id AND v2.vaccine_name = v.vaccine_name
@@ -155,7 +155,7 @@ export class NotificationService {
       []
     );
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
     const now = new Date().toISOString();
 
     for (const row of rows) {
@@ -182,7 +182,7 @@ export class NotificationService {
        FROM dewormings d
        JOIN cats c ON d.cat_id = c.id
        WHERE d.next_due_date IS NOT NULL
-         AND date(d.next_due_date) < date('now')
+         AND date(d.next_due_date) < date('now', '+7 hours')
          AND d.id = (
            SELECT d2.id FROM dewormings d2
            WHERE d2.cat_id = d.cat_id
@@ -191,7 +191,7 @@ export class NotificationService {
       []
     );
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
     const now = new Date().toISOString();
 
     for (const row of rows) {
@@ -219,7 +219,7 @@ export class NotificationService {
       []
     );
 
-    const today = new Date().toISOString().slice(0, 10);
+    const today = new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 10);
     const now = new Date().toISOString();
 
     for (const row of rows) {

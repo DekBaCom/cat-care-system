@@ -70,7 +70,7 @@ export class LineService {
         ? `🐱 รายชื่อแมวของคุณ\n${SEP}\n${cats.map((c, i) => `${i + 1}. ${c.name}`).join('\n')}\n${SEP}\nทั้งหมด ${cats.length} ตัว`
         : `🐱 รายชื่อแมวของคุณ\n${SEP}\nยังไม่มีข้อมูลแมว`;
     } else if (text === '/vaccines_due') {
-      const rows = await query<{ vaccine_name: string; expiration_date: string; cat_name: string }>(env.DB, `SELECT v.vaccine_name, v.expiration_date, c.name AS cat_name FROM vaccinations v JOIN cats c ON v.cat_id = c.id WHERE v.expiration_date IS NOT NULL AND date(v.expiration_date) >= date('now', '-15 days') AND date(v.expiration_date) <= date('now', '+7 days') AND v.id = (SELECT v2.id FROM vaccinations v2 WHERE v2.cat_id = v.cat_id AND v2.vaccine_name = v.vaccine_name ORDER BY v2.vaccination_date DESC, v2.created_at DESC LIMIT 1) ORDER BY v.expiration_date ASC`, []);
+      const rows = await query<{ vaccine_name: string; expiration_date: string; cat_name: string }>(env.DB, `SELECT v.vaccine_name, v.expiration_date, c.name AS cat_name FROM vaccinations v JOIN cats c ON v.cat_id = c.id WHERE v.expiration_date IS NOT NULL AND date(v.expiration_date) >= date('now', '+7 hours', '-15 days') AND date(v.expiration_date) <= date('now', '+7 hours', '+7 days') AND v.id = (SELECT v2.id FROM vaccinations v2 WHERE v2.cat_id = v.cat_id AND v2.vaccine_name = v.vaccine_name ORDER BY v2.vaccination_date DESC, v2.created_at DESC LIMIT 1) ORDER BY v.expiration_date ASC`, []);
       reply = rows.length > 0
         ? `💉 วัคซีนใกล้ถึงกำหนด\n${SEP}\n${rows.map((r) => `🐱 ${r.cat_name}\n   📌 ${r.vaccine_name}\n   📅 ${r.expiration_date}\n   ${dueLabel(diffDays(r.expiration_date))}`).join('\n\n')}\n${SEP}\nพบ ${rows.length} รายการ`
         : `💉 วัคซีนใกล้ถึงกำหนด\n${SEP}\n✅ ไม่มีวัคซีนที่ใกล้ถึงกำหนดหรือเลยกำหนด`;
@@ -80,7 +80,7 @@ export class LineService {
         ? `💊 ยาที่ต้องให้วันนี้\n${SEP}\n${rows.map((r) => `🐱 ${r.cat_name} → ${r.medicine_name}`).join('\n')}\n${SEP}\nทั้งหมด ${rows.length} รายการ`
         : `💊 ยาที่ต้องให้วันนี้\n${SEP}\n✅ ไม่มียาที่ต้องให้ในขณะนี้`;
     } else if (text === '/dewormings_due') {
-      const rows = await query<{ product_name: string | null; next_due_date: string; cat_name: string }>(env.DB, `SELECT d.product_name, d.next_due_date, c.name AS cat_name FROM dewormings d JOIN cats c ON d.cat_id = c.id WHERE d.next_due_date IS NOT NULL AND date(d.next_due_date) <= date('now', '+7 days') AND d.id = (SELECT d2.id FROM dewormings d2 WHERE d2.cat_id = d.cat_id ORDER BY d2.deworming_date DESC, d2.created_at DESC LIMIT 1) ORDER BY d.next_due_date ASC`, []);
+      const rows = await query<{ product_name: string | null; next_due_date: string; cat_name: string }>(env.DB, `SELECT d.product_name, d.next_due_date, c.name AS cat_name FROM dewormings d JOIN cats c ON d.cat_id = c.id WHERE d.next_due_date IS NOT NULL AND date(d.next_due_date) <= date('now', '+7 hours', '+7 days') AND d.id = (SELECT d2.id FROM dewormings d2 WHERE d2.cat_id = d.cat_id ORDER BY d2.deworming_date DESC, d2.created_at DESC LIMIT 1) ORDER BY d.next_due_date ASC`, []);
       reply = rows.length > 0
         ? `🐛 ถ่ายพยาธิใกล้ถึงกำหนด\n${SEP}\n${rows.map((r) => `🐱 ${r.cat_name}${r.product_name ? '\n   💊 ' + r.product_name : ''}\n   📅 ${r.next_due_date}\n   ${dueLabel(diffDays(r.next_due_date))}`).join('\n\n')}\n${SEP}\nพบ ${rows.length} รายการ`
         : `🐛 ถ่ายพยาธิใกล้ถึงกำหนด\n${SEP}\n✅ ไม่มีการถ่ายพยาธิที่ใกล้ถึงกำหนดหรือเลยกำหนด`;
@@ -92,9 +92,9 @@ export class LineService {
     } else if (text === '/status') {
       const [cats, vaccines, meds, dewormings] = await Promise.all([
         query<{ name: string }>(env.DB, `SELECT name FROM cats`, []),
-        query<{ count: number }>(env.DB, `SELECT COUNT(*) AS count FROM vaccinations WHERE date(expiration_date) <= date('now', '+7 days') AND date(expiration_date) >= date('now')`, []),
+        query<{ count: number }>(env.DB, `SELECT COUNT(*) AS count FROM vaccinations WHERE date(expiration_date) <= date('now', '+7 hours', '+7 days') AND date(expiration_date) >= date('now', '+7 hours')`, []),
         query<{ count: number }>(env.DB, `SELECT COUNT(*) AS count FROM medications WHERE is_active = 1`, []),
-        query<{ count: number }>(env.DB, `SELECT COUNT(*) AS count FROM dewormings WHERE date(next_due_date) <= date('now', '+7 days') AND date(next_due_date) >= date('now')`, []),
+        query<{ count: number }>(env.DB, `SELECT COUNT(*) AS count FROM dewormings WHERE date(next_due_date) <= date('now', '+7 hours', '+7 days') AND date(next_due_date) >= date('now', '+7 hours')`, []),
       ]);
       reply = `📊 สรุปสุขภาพแมว\n${SEP}\n🐱 แมวทั้งหมด: ${cats.length} ตัว\n💉 วัคซีนใกล้ถึงกำหนด: ${vaccines[0]?.count ?? 0} รายการ\n💊 ยาที่กำลังให้: ${meds[0]?.count ?? 0} รายการ\n🐛 ถ่ายพยาธิใกล้ถึงกำหนด: ${dewormings[0]?.count ?? 0} รายการ\n${SEP}`;
     } else if (text === '/help') {
