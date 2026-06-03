@@ -19,17 +19,17 @@ A full-featured cat health management system built on Cloudflare Workers. Tracks
 ## Features
 
 - **Cat profiles** — photo upload, shareable public profile page
-- **Vaccinations** — record & upcoming reminder (7-day window)
+- **Vaccinations** — record history, dashboard shows due within 30 days + overdue (latest record per vaccine)
 - **Medical history** — illness / injury / checkup / surgery with treating/recovered status
-- **Medications** — active medication tracking
-- **Dewormings** — deworming records
+- **Medications** — active medication tracking with daily reminders
+- **Dewormings** — deworming records with due-date reminders
 - **Diet & feeding schedule** — diet plans and meal scheduling
 - **Weight logs** — weight history tracking
 - **Expenses** — cost tracking per cat
 - **Timeline** — unified activity feed
 - **Dashboard** — summary overview
 - **LINE Bot** — real-time chatbot commands + push notifications
-- **Scheduled notifications** — cron jobs at 09:00, 18:00, and hourly
+- **Scheduled notifications** — alerts at 30/7/3/1 days before due, on the day, and daily overdue reminders
 
 ## Quick Start
 
@@ -189,13 +189,26 @@ Connect your LINE account via **Settings → LINE** in the app (enter the 6-digi
 | Command | Description |
 |---|---|
 | `/my_cats` | List all your cats |
-| `/vaccines_due` | Vaccines due within the next 7 days |
+| `/vaccines_due` | Vaccines overdue up to 15 days ago or due within the next 7 days (latest record only) |
 | `/medications` | Currently active medications |
-| `/dewormings_due` | Dewormings due within the next 7 days |
+| `/dewormings_due` | Dewormings overdue or due within the next 7 days (latest record only) |
 | `/weights` | Latest recorded weight for each cat |
 | `/status` | Health summary: cat count, upcoming vaccines, active meds, due dewormings |
 | `/myid` | Show your LINE User ID |
 | `/help` | Show all available commands |
+
+## LINE Push Notifications
+
+Automatic push notifications are sent via LINE at the following checkpoints:
+
+| Trigger | Vaccines | Dewormings | Medications |
+|---|---|---|---|
+| 30 days before | ✓ | ✓ | — |
+| 7 days before | ✓ | ✓ | — |
+| 3 days before | ✓ | ✓ | — |
+| 1 day before | ✓ | ✓ | — |
+| On the day | ✓ | ✓ | — |
+| Daily (09:00) | overdue repeat | overdue repeat | ✓ active meds |
 
 ## Scripts
 
