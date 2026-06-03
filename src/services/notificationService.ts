@@ -5,8 +5,8 @@ import { LineService } from './lineService';
 
 interface NotifRow { id: string; user_id: string; cat_id: string | null; type: string; title: string; message: string; status: string; scheduled_date: string; sent_date: string | null; created_at: string; }
 
-// Schedule notifications at 9am UTC+7 = 02:00 UTC
 const NOTIFY_HOUR_UTC = 2;
+const SEP = '━━━━━━━━━━━━━━━━━━━━';
 
 function scheduledAt(dateStr: string, daysBefore: number): string {
   const d = new Date(dateStr);
@@ -65,12 +65,12 @@ export class NotificationService {
         if (exists.length > 0) continue;
 
         const title = daysBefore === 0
-          ? `⚠️ ถึงเวลาฉีดวัคซีน ${row.vaccine_name} ให้ ${row.cat_name} แล้ว!`
-          : `💉 ${row.cat_name} ต้องฉีดวัคซีน ${row.vaccine_name} ${label}`;
+          ? `⚠️ ${row.cat_name} · ${row.vaccine_name} · วันนี้!`
+          : `💉 ${row.cat_name} · ${row.vaccine_name} · ${label}`;
 
         const message = daysBefore === 0
-          ? `วันนัดฉีดวัคซีน ${row.vaccine_name} ของ ${row.cat_name} คือวันนี้ (${row.expiration_date}) กรุณานัดหมายหมอ`
-          : `วันนัดฉีดวัคซีน ${row.vaccine_name} ของ ${row.cat_name} คือ ${row.expiration_date}`;
+          ? `⚠️ วันนัดฉีดวัคซีนมาถึงแล้ว!\n${SEP}\n🐱 แมว: ${row.cat_name}\n📌 วัคซีน: ${row.vaccine_name}\n📅 วันนัด: วันนี้ (${row.expiration_date})\n${SEP}\nกรุณานัดหมายคลินิกวันนี้ 🏥`
+          : `💉 แจ้งเตือนวัคซีน\n${SEP}\n🐱 แมว: ${row.cat_name}\n📌 วัคซีน: ${row.vaccine_name}\n📅 วันนัดฉีด: ${row.expiration_date}\n⏰ ${label}\n${SEP}\nกรุณานัดหมายคลินิกล่วงหน้า 🏥`;
 
         await execute(env.DB,
           `INSERT INTO notifications (id, user_id, cat_id, type, title, message, status, scheduled_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -122,13 +122,14 @@ export class NotificationService {
         );
         if (exists.length > 0) continue;
 
+        const productLine = row.product_name ? `\n💊 ยา: ${row.product_name}` : '';
         const title = daysBefore === 0
-          ? `🐛 ถึงเวลาถ่ายพยาธิ ${row.cat_name} แล้ว!`
-          : `🐛 ${row.cat_name} ต้องถ่ายพยาธิ ${label}`;
+          ? `⚠️ ${row.cat_name} · ถ่ายพยาธิ · วันนี้!`
+          : `🐛 ${row.cat_name} · ถ่ายพยาธิ · ${label}`;
 
         const message = daysBefore === 0
-          ? `วันนัดถ่ายพยาธิของ ${row.cat_name} คือวันนี้ (${row.next_due_date})${row.product_name ? ' ยา: ' + row.product_name : ''} กรุณานัดหมายหมอ`
-          : `วันนัดถ่ายพยาธิของ ${row.cat_name} คือ ${row.next_due_date}${row.product_name ? ' ยา: ' + row.product_name : ''}`;
+          ? `⚠️ วันนัดถ่ายพยาธิมาถึงแล้ว!\n${SEP}\n🐱 แมว: ${row.cat_name}${productLine}\n📅 วันนัด: วันนี้ (${row.next_due_date})\n${SEP}\nกรุณานัดหมายคลินิกวันนี้ 🏥`
+          : `🐛 แจ้งเตือนถ่ายพยาธิ\n${SEP}\n🐱 แมว: ${row.cat_name}${productLine}\n📅 วันนัด: ${row.next_due_date}\n⏰ ${label}\n${SEP}\nกรุณานัดหมายคลินิกล่วงหน้า 🏥`;
 
         await execute(env.DB,
           `INSERT INTO notifications (id, user_id, cat_id, type, title, message, status, scheduled_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -167,8 +168,8 @@ export class NotificationService {
       await execute(env.DB,
         `INSERT INTO notifications (id, user_id, cat_id, type, title, message, status, scheduled_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [uuidv4(), row.user_id, row.cat_id, 'vaccine',
-         `⚠️ วัคซีน ${row.vaccine_name} ของ ${row.cat_name} เลยกำหนดแล้ว!`,
-         `วัคซีน ${row.vaccine_name} ของ ${row.cat_name} ครบกำหนดฉีดตั้งแต่ ${row.expiration_date} แล้ว กรุณานัดหมายหมอ`,
+         `🚨 ${row.cat_name} · ${row.vaccine_name} · เลยกำหนด!`,
+         `🚨 วัคซีนเลยกำหนดแล้ว!\n${SEP}\n🐱 แมว: ${row.cat_name}\n📌 วัคซีน: ${row.vaccine_name}\n📅 ครบกำหนด: ${row.expiration_date}\n❗ ยังไม่ได้ฉีด!\n${SEP}\nกรุณานัดหมายคลินิกโดยด่วน 🏥`,
          'pending', now, now]
       );
     }
@@ -200,11 +201,12 @@ export class NotificationService {
       );
       if (exists.length > 0) continue;
 
+      const overdueProductLine = row.product_name ? `\n💊 ยา: ${row.product_name}` : '';
       await execute(env.DB,
         `INSERT INTO notifications (id, user_id, cat_id, type, title, message, status, scheduled_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [uuidv4(), row.user_id, row.cat_id, 'reminder',
-         `⚠️ ถ่ายพยาธิ ${row.cat_name} เลยกำหนดแล้ว!`,
-         `การถ่ายพยาธิของ ${row.cat_name} ครบกำหนดตั้งแต่ ${row.next_due_date} แล้ว${row.product_name ? ' (ยา: ' + row.product_name + ')' : ''} กรุณานัดหมายหมอ`,
+         `🚨 ${row.cat_name} · ถ่ายพยาธิ · เลยกำหนด!`,
+         `🚨 ถ่ายพยาธิเลยกำหนดแล้ว!\n${SEP}\n🐱 แมว: ${row.cat_name}${overdueProductLine}\n📅 ครบกำหนด: ${row.next_due_date}\n❗ ยังไม่ได้ถ่ายพยาธิ!\n${SEP}\nกรุณานัดหมายคลินิกโดยด่วน 🏥`,
          'pending', now, now]
       );
     }
@@ -230,9 +232,13 @@ export class NotificationService {
       const scheduledToday = new Date();
       scheduledToday.setUTCHours(NOTIFY_HOUR_UTC, 0, 0, 0);
 
+      const dosageLine = row.dosage ? `\n📋 ขนาด: ${row.dosage}` : '';
       await execute(env.DB,
         `INSERT INTO notifications (id, user_id, cat_id, type, title, message, status, scheduled_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-        [uuidv4(), row.user_id, row.cat_id, 'medication', `💊 ให้ยา ${row.medicine_name} กับ ${row.cat_name}`, `ถึงเวลาให้ยา${row.dosage ? ` (${row.dosage})` : ''} แก่ ${row.cat_name}`, 'pending', scheduledToday.toISOString(), now]
+        [uuidv4(), row.user_id, row.cat_id, 'medication',
+         `💊 ${row.cat_name} · ${row.medicine_name}`,
+         `💊 ถึงเวลาให้ยา\n${SEP}\n🐱 แมว: ${row.cat_name}\n💊 ยา: ${row.medicine_name}${dosageLine}\n${SEP}\nอย่าลืมให้ยาตามเวลา ✅`,
+         'pending', scheduledToday.toISOString(), now]
       );
     }
   }

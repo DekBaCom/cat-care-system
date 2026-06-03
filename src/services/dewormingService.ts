@@ -29,18 +29,21 @@ export class DewormingService {
 
     if (data.nextDueDate) {
       const cat = await CatService.getCatById(catId, userId, env);
+      const SEP = '━━━━━━━━━━━━━━━━━━━━';
       const labels: Record<number, string> = { 30: 'อีก 30 วัน', 7: 'อีก 7 วัน', 3: 'อีก 3 วัน', 1: 'พรุ่งนี้', 0: 'วันนี้' };
+      const productLine = data.productName ? `\n💊 ยา: ${data.productName}` : '';
       for (const days of [30, 7, 3, 1, 0]) {
         const scheduled = new Date(data.nextDueDate);
         scheduled.setDate(scheduled.getDate() - days);
         scheduled.setUTCHours(2, 0, 0, 0);
         if (scheduled.getTime() < Date.now()) continue;
         const label = labels[days];
-        const title = days === 0
-          ? `🐛 ถึงเวลาถ่ายพยาธิ ${cat.name} แล้ว!`
-          : `🐛 ${cat.name} ต้องถ่ายพยาธิ ${label}`;
+        const title = days === 0 ? `⚠️ ${cat.name} · ถ่ายพยาธิ · วันนี้!` : `🐛 ${cat.name} · ถ่ายพยาธิ · ${label}`;
+        const message = days === 0
+          ? `⚠️ วันนัดถ่ายพยาธิมาถึงแล้ว!\n${SEP}\n🐱 แมว: ${cat.name}${productLine}\n📅 วันนัด: วันนี้ (${data.nextDueDate})\n${SEP}\nกรุณานัดหมายคลินิกวันนี้ 🏥`
+          : `🐛 แจ้งเตือนถ่ายพยาธิ\n${SEP}\n🐱 แมว: ${cat.name}${productLine}\n📅 วันนัด: ${data.nextDueDate}\n⏰ ${label}\n${SEP}\nกรุณานัดหมายคลินิกล่วงหน้า 🏥`;
         await execute(env.DB, `INSERT INTO notifications (id, user_id, cat_id, type, title, message, status, scheduled_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-          [uuidv4(), userId, catId, 'reminder', title, `วันนัดถ่ายพยาธิของ ${cat.name} คือ ${data.nextDueDate}${data.productName ? ' (ยา: ' + data.productName + ')' : ''}`, 'pending', scheduled.toISOString(), now]);
+          [uuidv4(), userId, catId, 'reminder', title, message, 'pending', scheduled.toISOString(), now]);
       }
     }
     return rowTo((await queryOne<DewormingRow>(env.DB, 'SELECT * FROM dewormings WHERE id = ?', [id]))!);

@@ -23,8 +23,7 @@ export class LineService {
   }
 
   static formatNotificationMessage(n: Notification): string {
-    const icons: Record<string, string> = { vaccine: '💉', medication: '💊', checkup: '🏥', diet: '🍽️', reminder: '🔔' };
-    return `${icons[n.type] ?? '🔔'} ${n.title}\n${n.message}`;
+    return n.message;
   }
 
   static async handleLineMessage(event: { type: string; source: { userId: string }; message: { text: string } }, env: Env): Promise<void> {
@@ -49,24 +48,47 @@ export class LineService {
       return;
     }
 
+    const SEP = '━━━━━━━━━━━━━━━━━━━━';
+    const diffDays = (dateStr: string): number => {
+      const today = new Date(); today.setHours(0, 0, 0, 0);
+      const d = new Date(dateStr); d.setHours(0, 0, 0, 0);
+      return Math.round((d.getTime() - today.getTime()) / 86400000);
+    };
+    const dueLabel = (diff: number): string => {
+      if (diff < 0) return `❗ เลย ${Math.abs(diff)} วันแล้ว`;
+      if (diff === 0) return `⚠️ ถึงกำหนดวันนี้`;
+      if (diff <= 3) return `⏰ อีก ${diff} วัน ⚡`;
+      return `⏰ อีก ${diff} วัน`;
+    };
+
     let reply = '';
     if (text === '/myid') {
-      reply = `📋 LINE User ID ของคุณ:\n${lineUserId}\n\nนำ User ID นี้ไปกรอกที่แอป ⚙️ ตั้งค่า LINE`;
+      reply = `🪪 LINE User ID\n${SEP}\n${lineUserId}\n${SEP}\nนำ ID นี้ไปกรอกที่แอป\n⚙️ ตั้งค่า → เชื่อมต่อ LINE`;
     } else if (text === '/my_cats') {
       const cats = await query<{ name: string }>(env.DB, 'SELECT name FROM cats', []);
-      reply = cats.length > 0 ? `🐱 แมวทั้งหมด:\n${cats.map((c, i) => `${i + 1}. ${c.name}`).join('\n')}` : 'ยังไม่มีข้อมูลแมว';
+      reply = cats.length > 0
+        ? `🐱 รายชื่อแมวของคุณ\n${SEP}\n${cats.map((c, i) => `${i + 1}. ${c.name}`).join('\n')}\n${SEP}\nทั้งหมด ${cats.length} ตัว`
+        : `🐱 รายชื่อแมวของคุณ\n${SEP}\nยังไม่มีข้อมูลแมว`;
     } else if (text === '/vaccines_due') {
       const rows = await query<{ vaccine_name: string; expiration_date: string; cat_name: string }>(env.DB, `SELECT v.vaccine_name, v.expiration_date, c.name AS cat_name FROM vaccinations v JOIN cats c ON v.cat_id = c.id WHERE v.expiration_date IS NOT NULL AND date(v.expiration_date) >= date('now', '-15 days') AND date(v.expiration_date) <= date('now', '+7 days') AND v.id = (SELECT v2.id FROM vaccinations v2 WHERE v2.cat_id = v.cat_id AND v2.vaccine_name = v.vaccine_name ORDER BY v2.vaccination_date DESC, v2.created_at DESC LIMIT 1) ORDER BY v.expiration_date ASC`, []);
-      reply = rows.length > 0 ? `💉 วัคซีนใกล้ถึงกำหนด/เลยกำหนด:\n${rows.map((r) => `• ${r.cat_name}: ${r.vaccine_name}\n  นัดฉีด: ${r.expiration_date}`).join('\n')}` : 'ไม่มีวัคซีนที่ใกล้ถึงกำหนดหรือเลยกำหนด';
+      reply = rows.length > 0
+        ? `💉 วัคซีนใกล้ถึงกำหนด\n${SEP}\n${rows.map((r) => `🐱 ${r.cat_name}\n   📌 ${r.vaccine_name}\n   📅 ${r.expiration_date}\n   ${dueLabel(diffDays(r.expiration_date))}`).join('\n\n')}\n${SEP}\nพบ ${rows.length} รายการ`
+        : `💉 วัคซีนใกล้ถึงกำหนด\n${SEP}\n✅ ไม่มีวัคซีนที่ใกล้ถึงกำหนดหรือเลยกำหนด`;
     } else if (text === '/medications') {
       const rows = await query<{ medicine_name: string; cat_name: string }>(env.DB, `SELECT m.medicine_name, c.name AS cat_name FROM medications m JOIN cats c ON m.cat_id = c.id WHERE m.is_active = 1`, []);
-      reply = rows.length > 0 ? `💊 ยาที่ต้องให้:\n${rows.map((r) => `• ${r.cat_name}: ${r.medicine_name}`).join('\n')}` : 'ไม่มียาที่ต้องให้ในขณะนี้';
+      reply = rows.length > 0
+        ? `💊 ยาที่ต้องให้วันนี้\n${SEP}\n${rows.map((r) => `🐱 ${r.cat_name} → ${r.medicine_name}`).join('\n')}\n${SEP}\nทั้งหมด ${rows.length} รายการ`
+        : `💊 ยาที่ต้องให้วันนี้\n${SEP}\n✅ ไม่มียาที่ต้องให้ในขณะนี้`;
     } else if (text === '/dewormings_due') {
       const rows = await query<{ product_name: string | null; next_due_date: string; cat_name: string }>(env.DB, `SELECT d.product_name, d.next_due_date, c.name AS cat_name FROM dewormings d JOIN cats c ON d.cat_id = c.id WHERE d.next_due_date IS NOT NULL AND date(d.next_due_date) <= date('now', '+7 days') AND d.id = (SELECT d2.id FROM dewormings d2 WHERE d2.cat_id = d.cat_id ORDER BY d2.deworming_date DESC, d2.created_at DESC LIMIT 1) ORDER BY d.next_due_date ASC`, []);
-      reply = rows.length > 0 ? `🐛 การถ่ายพยาธิใกล้ถึงกำหนด/เลยกำหนด:\n${rows.map((r) => `• ${r.cat_name}${r.product_name ? ': ' + r.product_name : ''}\n  นัดถ่ายพยาธิ: ${r.next_due_date}`).join('\n')}` : 'ไม่มีการถ่ายพยาธิที่ใกล้ถึงกำหนดหรือเลยกำหนด';
+      reply = rows.length > 0
+        ? `🐛 ถ่ายพยาธิใกล้ถึงกำหนด\n${SEP}\n${rows.map((r) => `🐱 ${r.cat_name}${r.product_name ? '\n   💊 ' + r.product_name : ''}\n   📅 ${r.next_due_date}\n   ${dueLabel(diffDays(r.next_due_date))}`).join('\n\n')}\n${SEP}\nพบ ${rows.length} รายการ`
+        : `🐛 ถ่ายพยาธิใกล้ถึงกำหนด\n${SEP}\n✅ ไม่มีการถ่ายพยาธิที่ใกล้ถึงกำหนดหรือเลยกำหนด`;
     } else if (text === '/weights') {
       const rows = await query<{ cat_name: string; weight_kg: number; logged_date: string }>(env.DB, `SELECT c.name AS cat_name, w.weight_kg, w.logged_date FROM weight_logs w JOIN cats c ON w.cat_id = c.id WHERE w.id IN (SELECT id FROM weight_logs w2 WHERE w2.cat_id = w.cat_id ORDER BY logged_date DESC, created_at DESC LIMIT 1) ORDER BY c.name ASC`, []);
-      reply = rows.length > 0 ? `⚖️ น้ำหนักล่าสุด:\n${rows.map((r) => `• ${r.cat_name}: ${r.weight_kg} kg (${r.logged_date})`).join('\n')}` : 'ยังไม่มีข้อมูลน้ำหนัก';
+      reply = rows.length > 0
+        ? `⚖️ น้ำหนักล่าสุด\n${SEP}\n${rows.map((r) => `🐱 ${r.cat_name}: ${r.weight_kg} kg\n   📅 ${r.logged_date}`).join('\n\n')}\n${SEP}`
+        : `⚖️ น้ำหนักล่าสุด\n${SEP}\nยังไม่มีข้อมูลน้ำหนัก`;
     } else if (text === '/status') {
       const [cats, vaccines, meds, dewormings] = await Promise.all([
         query<{ name: string }>(env.DB, `SELECT name FROM cats`, []),
@@ -74,11 +96,11 @@ export class LineService {
         query<{ count: number }>(env.DB, `SELECT COUNT(*) AS count FROM medications WHERE is_active = 1`, []),
         query<{ count: number }>(env.DB, `SELECT COUNT(*) AS count FROM dewormings WHERE date(next_due_date) <= date('now', '+7 days') AND date(next_due_date) >= date('now')`, []),
       ]);
-      reply = `📊 สรุปสุขภาพแมว\n🐱 แมวทั้งหมด: ${cats.length} ตัว\n💉 วัคซีนใกล้ถึงกำหนด: ${vaccines[0]?.count ?? 0} รายการ\n💊 ยาที่ต้องให้: ${meds[0]?.count ?? 0} รายการ\n🐛 ถ่ายพยาธิใกล้ถึงกำหนด: ${dewormings[0]?.count ?? 0} รายการ`;
+      reply = `📊 สรุปสุขภาพแมว\n${SEP}\n🐱 แมวทั้งหมด: ${cats.length} ตัว\n💉 วัคซีนใกล้ถึงกำหนด: ${vaccines[0]?.count ?? 0} รายการ\n💊 ยาที่กำลังให้: ${meds[0]?.count ?? 0} รายการ\n🐛 ถ่ายพยาธิใกล้ถึงกำหนด: ${dewormings[0]?.count ?? 0} รายการ\n${SEP}`;
     } else if (text === '/help') {
-      reply = '📋 คำสั่งที่ใช้ได้:\n/my_cats - รายชื่อแมว\n/vaccines_due - วัคซีนใกล้หมดอายุ\n/medications - ยาที่ต้องให้\n/dewormings_due - ถ่ายพยาธิใกล้ถึงกำหนด\n/weights - น้ำหนักล่าสุดของแมว\n/status - สรุปสุขภาพทั้งหมด\n/myid - แสดง LINE User ID\n/help - คำสั่งทั้งหมด';
+      reply = `📋 คำสั่งทั้งหมด\n${SEP}\n/my_cats        🐱 รายชื่อแมว\n/vaccines_due  💉 วัคซีนใกล้ถึงกำหนด\n/dewormings_due 🐛 ถ่ายพยาธิ\n/medications   💊 ยาที่ต้องให้\n/weights       ⚖️ น้ำหนักล่าสุด\n/status        📊 สรุปสุขภาพ\n/myid          🪪 LINE ID ของคุณ\n${SEP}`;
     } else {
-      reply = 'ไม่เข้าใจคำสั่ง พิมพ์ /help เพื่อดูคำสั่งทั้งหมด';
+      reply = `❓ ไม่เข้าใจคำสั่ง\n${SEP}\nพิมพ์ /help เพื่อดูคำสั่งทั้งหมด`;
     }
     await LineService.sendMessage(lineUserId, reply, env);
   }
