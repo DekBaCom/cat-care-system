@@ -25,7 +25,7 @@ export class NotificationService {
   }
 
   static async checkVaccinationsDue(env: Env): Promise<void> {
-    // Look ahead 30 days to pre-create all 3 notification points
+    // Look ahead 31 days to pre-create all notification points (30-day checkpoint needs +1 buffer)
     const rows = await query<{ user_id: string; cat_id: string; cat_name: string; vaccine_name: string; expiration_date: string }>(
       env.DB,
       `SELECT c.user_id, v.cat_id, c.name AS cat_name, v.vaccine_name, v.expiration_date
@@ -33,7 +33,7 @@ export class NotificationService {
        JOIN cats c ON v.cat_id = c.id
        WHERE v.expiration_date IS NOT NULL
          AND date(v.expiration_date) >= date('now')
-         AND date(v.expiration_date) <= date('now', '+30 days')`,
+         AND date(v.expiration_date) <= date('now', '+31 days')`,
       []
     );
 
@@ -41,7 +41,9 @@ export class NotificationService {
 
     for (const row of rows) {
       const checkpoints = [
+        { daysBefore: 30, label: 'อีก 30 วัน' },
         { daysBefore: 7, label: 'อีก 7 วัน' },
+        { daysBefore: 3, label: 'อีก 3 วัน' },
         { daysBefore: 1, label: 'พรุ่งนี้' },
         { daysBefore: 0, label: 'วันนี้' },
       ];

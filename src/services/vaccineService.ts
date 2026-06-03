@@ -16,9 +16,12 @@ export class VaccineService {
     const id = uuidv4(); const now = new Date().toISOString();
     await execute(env.DB, `INSERT INTO vaccinations (id, cat_id, vaccine_name, vaccination_date, expiration_date, clinic_name, veterinarian_name, lot_number, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [id, catId, data.vaccineName ?? '', data.vaccinationDate ?? now.slice(0, 10), data.expirationDate ?? null, data.clinicName ?? null, data.veterinarianName ?? null, data.lotNumber ?? null, data.notes ?? null, now]);
     if (data.expirationDate) {
-      for (const days of [7, 1]) {
+      const labels: Record<number, string> = { 30: 'อีก 30 วัน', 7: 'อีก 7 วัน', 3: 'อีก 3 วัน', 1: 'พรุ่งนี้' };
+      for (const days of [30, 7, 3, 1]) {
         const scheduled = new Date(data.expirationDate); scheduled.setDate(scheduled.getDate() - days);
-        await execute(env.DB, `INSERT INTO notifications (id, user_id, cat_id, type, title, message, status, scheduled_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [uuidv4(), userId, catId, 'vaccine', `วัคซีน ${data.vaccineName ?? ''} ของ ${cat.name} ใกล้หมดอายุ`, `วัคซีน ${data.vaccineName ?? ''} จะหมดอายุใน ${days} วัน (${data.expirationDate})`, 'pending', scheduled.toISOString(), now]);
+        if (scheduled.getTime() < Date.now()) continue;
+        const label = labels[days];
+        await execute(env.DB, `INSERT INTO notifications (id, user_id, cat_id, type, title, message, status, scheduled_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [uuidv4(), userId, catId, 'vaccine', `💉 ${cat.name} ต้องฉีดวัคซีน ${data.vaccineName ?? ''} ${label}`, `วันนัดฉีดวัคซีน ${data.vaccineName ?? ''} ของ ${cat.name} คือ ${data.expirationDate}`, 'pending', scheduled.toISOString(), now]);
       }
     }
     return rowToVaccination((await queryOne<VaccinationRow>(env.DB, 'SELECT * FROM vaccinations WHERE id = ?', [id]))!);

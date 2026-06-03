@@ -29,11 +29,13 @@ export class DewormingService {
 
     if (data.nextDueDate) {
       const cat = await CatService.getCatById(catId, userId, env);
-      for (const days of [7, 1, 0]) {
+      const labels: Record<number, string> = { 30: 'อีก 30 วัน', 7: 'อีก 7 วัน', 3: 'อีก 3 วัน', 1: 'พรุ่งนี้', 0: 'วันนี้' };
+      for (const days of [30, 7, 3, 1, 0]) {
         const scheduled = new Date(data.nextDueDate);
         scheduled.setDate(scheduled.getDate() - days);
         scheduled.setUTCHours(2, 0, 0, 0);
-        const label = days === 0 ? 'วันนี้' : days === 1 ? 'พรุ่งนี้' : 'อีก 7 วัน';
+        if (scheduled.getTime() < Date.now()) continue;
+        const label = labels[days];
         const title = days === 0
           ? `🐛 ถึงเวลาถ่ายพยาธิ ${cat.name} แล้ว!`
           : `🐛 ${cat.name} ต้องถ่ายพยาธิ ${label}`;
