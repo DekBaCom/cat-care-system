@@ -18,6 +18,7 @@ import { dewormingRoutes } from './routes/dewormings';
 import { renderSharePage } from './pages/share';
 import { lineWebhook } from './webhooks/line';
 import { handleScheduled } from './scheduled/notifications';
+import { NotificationService } from './services/notificationService';
 import { errorToResponse } from './utils/errors';
 import { appHtml } from './pages/app';
 
@@ -78,6 +79,16 @@ app.get('/photos/*', async (c) => {
   headers.set('etag', obj.httpEtag);
   headers.set('cache-control', 'public, max-age=31536000, immutable');
   return new Response(obj.body, { headers });
+});
+
+app.post('/api/admin/trigger-notifications', async (c) => {
+  if (c.req.header('x-admin-token') !== c.env.JWT_SECRET) return c.json({ error: 'Unauthorized' }, 401);
+  await NotificationService.checkVaccinationsDue(c.env);
+  await NotificationService.checkDewormingsDue(c.env);
+  await NotificationService.checkOverdueVaccinations(c.env);
+  await NotificationService.checkOverdueDewormings(c.env);
+  await NotificationService.sendDueNotifications(c.env);
+  return c.json({ success: true });
 });
 
 app.route('/webhook/line', lineWebhook);
