@@ -80,6 +80,64 @@ export class NotificationService {
     }
   }
 
+  static async checkDewormingsDue(env: Env): Promise<void> {
+    const rows = await query<{ user_id: string; cat_id: string; cat_name: string; next_due_date: string; product_name: string | null }>(
+      env.DB,
+      `SELECT c.user_id, d.cat_id, c.name AS cat_name, d.next_due_date, d.product_name
+       FROM dewormings d
+       JOIN cats c ON d.cat_id = c.id
+       WHERE d.next_due_date IS NOT NULL
+         AND date(d.next_due_date) >= date('now')
+         AND date(d.next_due_date) <= date('now', '+31 days')
+         AND d.id = (
+           SELECT d2.id FROM dewormings d2
+           WHERE d2.cat_id = d.cat_id
+           ORDER BY d2.deworming_date DESC, d2.created_at DESC LIMIT 1
+         )`,
+      []
+    );
+
+    const now = new Date().toISOString();
+
+    for (const row of rows) {
+      const checkpoints = [
+        { daysBefore: 30, label: 'อีก 30 วัน' },
+        { daysBefore: 7, label: 'อีก 7 วัน' },
+        { daysBefore: 3, label: 'อีก 3 วัน' },
+        { daysBefore: 1, label: 'พรุ่งนี้' },
+        { daysBefore: 0, label: 'วันนี้' },
+      ];
+
+      for (const { daysBefore, label } of checkpoints) {
+        const scheduledDateIso = scheduledAt(row.next_due_date, daysBefore);
+
+        const scheduledMs = new Date(scheduledDateIso).getTime();
+        if (scheduledMs < Date.now() - 86400000) continue;
+
+        const scheduledDay = scheduledDateIso.slice(0, 10);
+        const exists = await query<{ id: string }>(
+          env.DB,
+          `SELECT id FROM notifications WHERE user_id = ? AND cat_id = ? AND type = 'reminder' AND date(scheduled_date) = ? AND title LIKE ?`,
+          [row.user_id, row.cat_id, scheduledDay, `%ถ่ายพยาธิ%${row.cat_name}%`]
+        );
+        if (exists.length > 0) continue;
+
+        const title = daysBefore === 0
+          ? `🐛 ถึงเวลาถ่ายพยาธิ ${row.cat_name} แล้ว!`
+          : `🐛 ${row.cat_name} ต้องถ่ายพยาธิ ${label}`;
+
+        const message = daysBefore === 0
+          ? `วันนัดถ่ายพยาธิของ ${row.cat_name} คือวันนี้ (${row.next_due_date})${row.product_name ? ' ยา: ' + row.product_name : ''} กรุณานัดหมายหมอ`
+          : `วันนัดถ่ายพยาธิของ ${row.cat_name} คือ ${row.next_due_date}${row.product_name ? ' ยา: ' + row.product_name : ''}`;
+
+        await execute(env.DB,
+          `INSERT INTO notifications (id, user_id, cat_id, type, title, message, status, scheduled_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [uuidv4(), row.user_id, row.cat_id, 'reminder', title, message, 'pending', scheduledDateIso, now]
+        );
+      }
+    }
+  }
+
   static async checkOverdueVaccinations(env: Env): Promise<void> {
     const rows = await query<{ user_id: string; cat_id: string; cat_name: string; vaccine_name: string; expiration_date: string }>(
       env.DB,
