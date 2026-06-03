@@ -30,7 +30,7 @@ export class VaccineService {
   }
 
   static async getUpcomingVaccinations(_userId: string, env: Env): Promise<(Vaccination & { catName: string })[]> {
-    const rows = await query<VaccinationRow & { cat_name: string }>(env.DB, `SELECT v.*, c.name AS cat_name FROM vaccinations v JOIN cats c ON v.cat_id = c.id WHERE v.expiration_date IS NOT NULL AND date(v.expiration_date) <= date('now', '+7 days') AND date(v.expiration_date) >= date('now') ORDER BY v.expiration_date ASC`, []);
+    const rows = await query<VaccinationRow & { cat_name: string }>(env.DB, `SELECT v.*, c.name AS cat_name FROM vaccinations v JOIN cats c ON v.cat_id = c.id WHERE v.expiration_date IS NOT NULL AND date(v.expiration_date) <= date('now', '+7 days') AND v.id = (SELECT v2.id FROM vaccinations v2 WHERE v2.cat_id = v.cat_id AND v2.vaccine_name = v.vaccine_name ORDER BY v2.vaccination_date DESC, v2.created_at DESC LIMIT 1) ORDER BY v.expiration_date ASC`, []);
     return rows.map((r) => ({ ...rowToVaccination(r), catName: r.cat_name }));
   }
 

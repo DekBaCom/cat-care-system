@@ -920,7 +920,6 @@ async function loadDashboard() {
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.3rem">
             <span style="font-size:.75rem;font-weight:700;padding:.25rem .6rem;border-radius:20px;\${badgeStyle}">\${badge}</span>
-            <button class="btn btn-sm" style="font-size:.72rem;padding:.25rem .6rem;background:#48bb78;color:white;border:none;white-space:nowrap" onclick="openVaccinatedModal('\${v.cat_id}','\${escapeHtml(v.vaccine_name)}','\${escapeHtml(v.cat_name)}')">✅ ฉีดแล้ว</button>
           </div>
         </div>
       \`;
@@ -930,7 +929,7 @@ async function loadDashboard() {
       <div class="section" style="margin-bottom:1.5rem">
         <div class="section-head">
           <div class="section-title">💉 วัคซีนใกล้ถึงกำหนด</div>
-          <span style="font-size:.78rem;color:#718096">\${vaccines.length} รายการ (30 วัน)</span>
+          <span style="font-size:.78rem;color:#718096">\${vaccines.length} รายการ</span>
         </div>
         <div>\${rows}</div>
       </div>
@@ -1486,7 +1485,6 @@ async function loadVaccinations() {
             \${v.clinicName ? '<div class="record-meta">📍 ' + escapeHtml(v.clinicName) + '</div>' : ''}
           </div>
           <div style="display:flex;flex-direction:column;gap:.3rem;align-items:flex-end">
-            <button class="btn btn-sm" style="font-size:.72rem;padding:.25rem .6rem;background:#48bb78;color:white;border:none;white-space:nowrap" onclick="openVaccinatedModal('\${CURRENT_CAT.id}','\${escapeHtml(v.vaccineName)}','\${escapeHtml(CURRENT_CAT.name)}')">✅ ฉีดแล้ว</button>
             \${v.expirationDate ? '<a href="' + buildGCalUrl('นัดฉีดวัคซีน ' + v.vaccineName + ' (' + CURRENT_CAT.name + ')', v.expirationDate, 'ถึงเวลาฉีดวัคซีน ' + v.vaccineName + '\\nแมว: ' + CURRENT_CAT.name + (v.clinicName ? '\\nคลินิก: ' + v.clinicName : '')) + '" target="_blank" class="btn btn-sm btn-secondary" style="white-space:nowrap;font-size:.75rem;padding:.3rem .6rem" title="เพิ่มเข้า Google Calendar">📅 Calendar</a>' : ''}
           </div>
         </div>
