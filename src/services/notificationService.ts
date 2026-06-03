@@ -78,6 +78,78 @@ export class NotificationService {
     }
   }
 
+  static async checkOverdueVaccinations(env: Env): Promise<void> {
+    const rows = await query<{ user_id: string; cat_id: string; cat_name: string; vaccine_name: string; expiration_date: string }>(
+      env.DB,
+      `SELECT c.user_id, v.cat_id, c.name AS cat_name, v.vaccine_name, v.expiration_date
+       FROM vaccinations v
+       JOIN cats c ON v.cat_id = c.id
+       WHERE v.expiration_date IS NOT NULL
+         AND date(v.expiration_date) < date('now')
+         AND v.id = (
+           SELECT v2.id FROM vaccinations v2
+           WHERE v2.cat_id = v.cat_id AND v2.vaccine_name = v.vaccine_name
+           ORDER BY v2.vaccination_date DESC, v2.created_at DESC LIMIT 1
+         )`,
+      []
+    );
+
+    const today = new Date().toISOString().slice(0, 10);
+    const now = new Date().toISOString();
+
+    for (const row of rows) {
+      const exists = await query<{ id: string }>(env.DB,
+        `SELECT id FROM notifications WHERE user_id = ? AND cat_id = ? AND type = 'vaccine' AND date(scheduled_date) = ? AND title LIKE ?`,
+        [row.user_id, row.cat_id, today, `%${row.vaccine_name}%เลยกำหนด%`]
+      );
+      if (exists.length > 0) continue;
+
+      await execute(env.DB,
+        `INSERT INTO notifications (id, user_id, cat_id, type, title, message, status, scheduled_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [uuidv4(), row.user_id, row.cat_id, 'vaccine',
+         `⚠️ วัคซีน ${row.vaccine_name} ของ ${row.cat_name} เลยกำหนดแล้ว!`,
+         `วัคซีน ${row.vaccine_name} ของ ${row.cat_name} ครบกำหนดฉีดตั้งแต่ ${row.expiration_date} แล้ว กรุณานัดหมายหมอ`,
+         'pending', now, now]
+      );
+    }
+  }
+
+  static async checkOverdueDewormings(env: Env): Promise<void> {
+    const rows = await query<{ user_id: string; cat_id: string; cat_name: string; next_due_date: string; product_name: string | null }>(
+      env.DB,
+      `SELECT c.user_id, d.cat_id, c.name AS cat_name, d.next_due_date, d.product_name
+       FROM dewormings d
+       JOIN cats c ON d.cat_id = c.id
+       WHERE d.next_due_date IS NOT NULL
+         AND date(d.next_due_date) < date('now')
+         AND d.id = (
+           SELECT d2.id FROM dewormings d2
+           WHERE d2.cat_id = d.cat_id
+           ORDER BY d2.deworming_date DESC, d2.created_at DESC LIMIT 1
+         )`,
+      []
+    );
+
+    const today = new Date().toISOString().slice(0, 10);
+    const now = new Date().toISOString();
+
+    for (const row of rows) {
+      const exists = await query<{ id: string }>(env.DB,
+        `SELECT id FROM notifications WHERE user_id = ? AND cat_id = ? AND type = 'reminder' AND date(scheduled_date) = ? AND title LIKE ?`,
+        [row.user_id, row.cat_id, today, `%ถ่ายพยาธิ%${row.cat_name}%เลยกำหนด%`]
+      );
+      if (exists.length > 0) continue;
+
+      await execute(env.DB,
+        `INSERT INTO notifications (id, user_id, cat_id, type, title, message, status, scheduled_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [uuidv4(), row.user_id, row.cat_id, 'reminder',
+         `⚠️ ถ่ายพยาธิ ${row.cat_name} เลยกำหนดแล้ว!`,
+         `การถ่ายพยาธิของ ${row.cat_name} ครบกำหนดตั้งแต่ ${row.next_due_date} แล้ว${row.product_name ? ' (ยา: ' + row.product_name + ')' : ''} กรุณานัดหมายหมอ`,
+         'pending', now, now]
+      );
+    }
+  }
+
   static async checkMedicationsDue(env: Env): Promise<void> {
     const rows = await query<{ user_id: string; cat_id: string; cat_name: string; medicine_name: string; dosage: string | null }>(
       env.DB,

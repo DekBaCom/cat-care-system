@@ -7,10 +7,12 @@ export async function handleScheduled(_event: ScheduledEvent, env: Env, ctx: Exe
       // Pre-create 7-day / 1-day / same-day vaccine notifications (runs every hour)
       await NotificationService.checkVaccinationsDue(env);
 
-      // Daily medication reminders at 9am UTC+7 (02:00 UTC)
+      // Daily checks at 9am UTC+7 (02:00 UTC)
       const hour = new Date().getUTCHours();
       if (hour === 2) {
         await NotificationService.checkMedicationsDue(env);
+        await NotificationService.checkOverdueVaccinations(env);
+        await NotificationService.checkOverdueDewormings(env);
       }
 
       // Send all pending notifications that are due now
