@@ -98,7 +98,7 @@ export class LineService {
       ]);
       reply = `📊 สรุปสุขภาพแมว\n${SEP}\n🐱 แมวทั้งหมด: ${cats.length} ตัว\n💉 วัคซีนใกล้ถึงกำหนด: ${vaccines[0]?.count ?? 0} รายการ\n💊 ยาที่กำลังให้: ${meds[0]?.count ?? 0} รายการ\n🐛 ถ่ายพยาธิใกล้ถึงกำหนด: ${dewormings[0]?.count ?? 0} รายการ\n${SEP}`;
     } else if (text === '/help') {
-      reply = `📋 คำสั่งทั้งหมด\n${SEP}\n/my_cats        🐱 รายชื่อแมว\n/vaccines_due  💉 วัคซีนใกล้ถึงกำหนด\n/dewormings_due 🐛 ถ่ายพยาธิ\n/medications   💊 ยาที่ต้องให้\n/weights       ⚖️ น้ำหนักล่าสุด\n/status        📊 สรุปสุขภาพ\n/myid          🪪 LINE ID ของคุณ\n${SEP}`;
+      reply = `📋 คำสั่งทั้งหมด\n${SEP}\n🐱 /my_cats\n   รายชื่อแมวของคุณ\n\n💉 /vaccines_due\n   วัคซีนใกล้ถึงกำหนด\n\n🐛 /dewormings_due\n   ถ่ายพยาธิใกล้ถึงกำหนด\n\n💊 /medications\n   ยาที่ต้องให้วันนี้\n\n⚖️ /weights\n   น้ำหนักล่าสุดของแมว\n\n📊 /status\n   สรุปสุขภาพทั้งหมด\n\n🪪 /myid\n   LINE ID ของคุณ\n${SEP}`;
     } else {
       reply = `❓ ไม่เข้าใจคำสั่ง\n${SEP}\nพิมพ์ /help เพื่อดูคำสั่งทั้งหมด`;
     }
