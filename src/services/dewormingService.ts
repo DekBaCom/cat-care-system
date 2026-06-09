@@ -30,13 +30,18 @@ export class DewormingService {
     if (data.nextDueDate) {
       const cat = await CatService.getCatById(catId, userId, env);
       const SEP = '━━━━━━━━━━━━━━━━━━━━';
-      const labels: Record<number, string> = { 30: 'อีก 30 วัน', 7: 'อีก 7 วัน', 3: 'อีก 3 วัน', 1: 'พรุ่งนี้', 0: 'วันนี้' };
+      const labels: Record<number, string> = { 30: 'อีก 30 วัน', 15: 'อีก 15 วัน', 7: 'อีก 7 วัน', 5: 'อีก 5 วัน', 2: 'อีก 2 วัน', 1: 'พรุ่งนี้', 0: 'วันนี้' };
       const productLine = data.productName ? `\n💊 ยา: ${data.productName}` : '';
-      for (const days of [30, 7, 3, 1, 0]) {
+      for (const days of [30, 15, 7, 5, 2, 1, 0]) {
         const scheduled = new Date(data.nextDueDate);
         scheduled.setDate(scheduled.getDate() - days);
         scheduled.setUTCHours(2, 0, 0, 0);
         if (scheduled.getTime() < Date.now()) continue;
+        const scheduledDay = scheduled.toISOString().slice(0, 10);
+        const exists = await query<{ id: string }>(env.DB,
+          `SELECT id FROM notifications WHERE user_id = ? AND cat_id = ? AND type = 'reminder' AND date(scheduled_date) = ? AND title LIKE ?`,
+          [userId, catId, scheduledDay, `%${cat.name}%ถ่ายพยาธิ%`]);
+        if (exists.length > 0) continue;
         const label = labels[days];
         const title = days === 0 ? `⚠️ ${cat.name} · ถ่ายพยาธิ · วันนี้!` : `🐛 ${cat.name} · ถ่ายพยาธิ · ${label}`;
         const message = days === 0

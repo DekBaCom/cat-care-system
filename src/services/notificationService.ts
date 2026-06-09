@@ -17,10 +17,24 @@ function scheduledAt(dateStr: string, daysBefore: number): string {
 
 export class NotificationService {
   static async sendDueNotifications(env: Env): Promise<void> {
-    const rows = await query<NotifRow>(env.DB, `SELECT * FROM notifications WHERE status = 'pending' AND scheduled_date <= ? LIMIT 50`, [new Date().toISOString()]);
-    for (const row of rows) {
-      const n: Notification = { id: row.id, userId: row.user_id, catId: row.cat_id ?? undefined, type: row.type as Notification['type'], title: row.title, message: row.message, status: row.status as Notification['status'], scheduledDate: row.scheduled_date, sentDate: row.sent_date ?? undefined, createdAt: row.created_at };
-      try { await LineService.sendNotification(n, env); } catch { await execute(env.DB, 'UPDATE notifications SET status = ? WHERE id = ?', ['failed', row.id]); }
+    const now = new Date().toISOString();
+    // Atomically claim and mark as sent to prevent concurrent invocations from sending duplicates
+    const result = await env.DB
+      .prepare(
+        `UPDATE notifications SET status = 'sent', sent_date = ? WHERE id IN (
+          SELECT id FROM notifications WHERE status = 'pending' AND scheduled_date <= ? LIMIT 50
+        ) RETURNING id, user_id, cat_id, type, title, message, status, scheduled_date, sent_date, created_at`
+      )
+      .bind(now, now)
+      .all<NotifRow>();
+
+    for (const row of result.results) {
+      const n: Notification = { id: row.id, userId: row.user_id, catId: row.cat_id ?? undefined, type: row.type as Notification['type'], title: row.title, message: row.message, status: 'sent', scheduledDate: row.scheduled_date, sentDate: row.sent_date ?? undefined, createdAt: row.created_at };
+      try {
+        await LineService.broadcastToAllUsers(LineService.formatNotificationMessage(n), env);
+      } catch {
+        await execute(env.DB, `UPDATE notifications SET status = 'failed' WHERE id = ?`, [row.id]);
+      }
     }
   }
 
@@ -42,8 +56,10 @@ export class NotificationService {
     for (const row of rows) {
       const checkpoints = [
         { daysBefore: 30, label: 'อีก 30 วัน' },
+        { daysBefore: 15, label: 'อีก 15 วัน' },
         { daysBefore: 7, label: 'อีก 7 วัน' },
-        { daysBefore: 3, label: 'อีก 3 วัน' },
+        { daysBefore: 5, label: 'อีก 5 วัน' },
+        { daysBefore: 2, label: 'อีก 2 วัน' },
         { daysBefore: 1, label: 'พรุ่งนี้' },
         { daysBefore: 0, label: 'วันนี้' },
       ];
@@ -102,8 +118,10 @@ export class NotificationService {
     for (const row of rows) {
       const checkpoints = [
         { daysBefore: 30, label: 'อีก 30 วัน' },
+        { daysBefore: 15, label: 'อีก 15 วัน' },
         { daysBefore: 7, label: 'อีก 7 วัน' },
-        { daysBefore: 3, label: 'อีก 3 วัน' },
+        { daysBefore: 5, label: 'อีก 5 วัน' },
+        { daysBefore: 2, label: 'อีก 2 วัน' },
         { daysBefore: 1, label: 'พรุ่งนี้' },
         { daysBefore: 0, label: 'วันนี้' },
       ];
@@ -118,7 +136,7 @@ export class NotificationService {
         const exists = await query<{ id: string }>(
           env.DB,
           `SELECT id FROM notifications WHERE user_id = ? AND cat_id = ? AND type = 'reminder' AND date(scheduled_date) = ? AND title LIKE ?`,
-          [row.user_id, row.cat_id, scheduledDay, `%ถ่ายพยาธิ%${row.cat_name}%`]
+          [row.user_id, row.cat_id, scheduledDay, `%${row.cat_name}%ถ่ายพยาธิ%`]
         );
         if (exists.length > 0) continue;
 
@@ -197,7 +215,7 @@ export class NotificationService {
     for (const row of rows) {
       const exists = await query<{ id: string }>(env.DB,
         `SELECT id FROM notifications WHERE user_id = ? AND cat_id = ? AND type = 'reminder' AND date(scheduled_date) = ? AND title LIKE ?`,
-        [row.user_id, row.cat_id, today, `%ถ่ายพยาธิ%${row.cat_name}%เลยกำหนด%`]
+        [row.user_id, row.cat_id, today, `%${row.cat_name}%ถ่ายพยาธิ%เลยกำหนด%`]
       );
       if (exists.length > 0) continue;
 
