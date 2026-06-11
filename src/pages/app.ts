@@ -920,6 +920,9 @@ async function loadDashboard() {
           </div>
           <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.3rem">
             <span style="font-size:.75rem;font-weight:700;padding:.25rem .6rem;border-radius:20px;\${badgeStyle}">\${badge}</span>
+            <button class="btn btn-sm" style="font-size:.72rem;padding:.2rem .55rem;background:#48bb78;color:white;border-radius:6px"
+              data-cat-id="\${v.cat_id}" data-vaccine="\${escapeHtml(v.vaccine_name)}" data-cat="\${escapeHtml(v.cat_name)}"
+              onclick="openVaccinatedModal(this.dataset.catId,this.dataset.vaccine,this.dataset.cat)">✅ ฉีดแล้ว</button>
           </div>
         </div>
       \`;
