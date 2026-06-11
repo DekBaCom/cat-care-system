@@ -40,6 +40,7 @@ export class NotificationService {
 
   static async checkVaccinationsDue(env: Env): Promise<void> {
     // Look ahead 31 days to pre-create all notification points (30-day checkpoint needs +1 buffer)
+    // Only use the latest vaccination record per cat per vaccine type
     const rows = await query<{ user_id: string; cat_id: string; cat_name: string; vaccine_name: string; expiration_date: string }>(
       env.DB,
       `SELECT c.user_id, v.cat_id, c.name AS cat_name, v.vaccine_name, v.expiration_date
@@ -47,7 +48,12 @@ export class NotificationService {
        JOIN cats c ON v.cat_id = c.id
        WHERE v.expiration_date IS NOT NULL
          AND date(v.expiration_date) >= date('now', '+7 hours')
-         AND date(v.expiration_date) <= date('now', '+7 hours', '+31 days')`,
+         AND date(v.expiration_date) <= date('now', '+7 hours', '+31 days')
+         AND v.id = (
+           SELECT v2.id FROM vaccinations v2
+           WHERE v2.cat_id = v.cat_id AND v2.vaccine_name = v.vaccine_name
+           ORDER BY v2.vaccination_date DESC, v2.created_at DESC LIMIT 1
+         )`,
       []
     );
 
@@ -158,9 +164,10 @@ export class NotificationService {
   }
 
   static async checkOverdueVaccinations(env: Env): Promise<void> {
-    const rows = await query<{ user_id: string; cat_id: string; cat_name: string; vaccine_name: string; expiration_date: string }>(
+    const rows = await query<{ user_id: string; cat_id: string; cat_name: string; vaccine_name: string; expiration_date: string; days_overdue: number }>(
       env.DB,
-      `SELECT c.user_id, v.cat_id, c.name AS cat_name, v.vaccine_name, v.expiration_date
+      `SELECT c.user_id, v.cat_id, c.name AS cat_name, v.vaccine_name, v.expiration_date,
+              CAST(julianday('now', '+7 hours') - julianday(v.expiration_date) AS INTEGER) AS days_overdue
        FROM vaccinations v
        JOIN cats c ON v.cat_id = c.id
        WHERE v.expiration_date IS NOT NULL
@@ -183,20 +190,22 @@ export class NotificationService {
       );
       if (exists.length > 0) continue;
 
+      const overdueDays = row.days_overdue > 0 ? row.days_overdue : 1;
       await execute(env.DB,
         `INSERT INTO notifications (id, user_id, cat_id, type, title, message, status, scheduled_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [uuidv4(), row.user_id, row.cat_id, 'vaccine',
-         `🚨 ${row.cat_name} · ${row.vaccine_name} · เลยกำหนด!`,
-         `🚨 วัคซีนเลยกำหนดแล้ว!\n${SEP}\n🐱 แมว: ${row.cat_name}\n📌 วัคซีน: ${row.vaccine_name}\n📅 ครบกำหนด: ${row.expiration_date}\n❗ ยังไม่ได้ฉีด!\n${SEP}\nกรุณานัดหมายคลินิกโดยด่วน 🏥`,
+         `🚨 ${row.cat_name} · ${row.vaccine_name} · เลยกำหนด ${overdueDays} วัน!`,
+         `🚨 วัคซีนเลยกำหนดแล้ว ${overdueDays} วัน!\n${SEP}\n🐱 แมว: ${row.cat_name}\n📌 วัคซีน: ${row.vaccine_name}\n📅 ครบกำหนด: ${row.expiration_date}\n❗ เลยกำหนด: ${overdueDays} วัน\n${SEP}\nกรุณานัดหมายคลินิกโดยด่วน 🏥`,
          'pending', now, now]
       );
     }
   }
 
   static async checkOverdueDewormings(env: Env): Promise<void> {
-    const rows = await query<{ user_id: string; cat_id: string; cat_name: string; next_due_date: string; product_name: string | null }>(
+    const rows = await query<{ user_id: string; cat_id: string; cat_name: string; next_due_date: string; product_name: string | null; days_overdue: number }>(
       env.DB,
-      `SELECT c.user_id, d.cat_id, c.name AS cat_name, d.next_due_date, d.product_name
+      `SELECT c.user_id, d.cat_id, c.name AS cat_name, d.next_due_date, d.product_name,
+              CAST(julianday('now', '+7 hours') - julianday(d.next_due_date) AS INTEGER) AS days_overdue
        FROM dewormings d
        JOIN cats c ON d.cat_id = c.id
        WHERE d.next_due_date IS NOT NULL
@@ -219,12 +228,13 @@ export class NotificationService {
       );
       if (exists.length > 0) continue;
 
+      const overdueDays = row.days_overdue > 0 ? row.days_overdue : 1;
       const overdueProductLine = row.product_name ? `\n💊 ยา: ${row.product_name}` : '';
       await execute(env.DB,
         `INSERT INTO notifications (id, user_id, cat_id, type, title, message, status, scheduled_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [uuidv4(), row.user_id, row.cat_id, 'reminder',
-         `🚨 ${row.cat_name} · ถ่ายพยาธิ · เลยกำหนด!`,
-         `🚨 ถ่ายพยาธิเลยกำหนดแล้ว!\n${SEP}\n🐱 แมว: ${row.cat_name}${overdueProductLine}\n📅 ครบกำหนด: ${row.next_due_date}\n❗ ยังไม่ได้ถ่ายพยาธิ!\n${SEP}\nกรุณานัดหมายคลินิกโดยด่วน 🏥`,
+         `🚨 ${row.cat_name} · ถ่ายพยาธิ · เลยกำหนด ${overdueDays} วัน!`,
+         `🚨 ถ่ายพยาธิเลยกำหนดแล้ว ${overdueDays} วัน!\n${SEP}\n🐱 แมว: ${row.cat_name}${overdueProductLine}\n📅 ครบกำหนด: ${row.next_due_date}\n❗ เลยกำหนด: ${overdueDays} วัน\n${SEP}\nกรุณานัดหมายคลินิกโดยด่วน 🏥`,
          'pending', now, now]
       );
     }
