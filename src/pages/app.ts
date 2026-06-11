@@ -1484,13 +1484,7 @@ async function loadVaccinations() {
             <div class="record-meta">ฉีดวันที่ \${v.vaccinationDate} \${v.expirationDate ? '· นัดฉีดครั้งต่อไป: ' + v.expirationDate : ''}</div>
             \${v.clinicName ? '<div class="record-meta">📍 ' + escapeHtml(v.clinicName) + '</div>' : ''}
           </div>
-          <div style="display:flex;flex-direction:column;gap:.3rem;align-items:flex-end">
-            \${v.expirationDate ? '<a href="' + buildGCalUrl('นัดฉีดวัคซีน ' + v.vaccineName + ' (' + CURRENT_CAT.name + ')', v.expirationDate, 'ถึงเวลาฉีดวัคซีน ' + v.vaccineName + '\\nแมว: ' + CURRENT_CAT.name + (v.clinicName ? '\\nคลินิก: ' + v.clinicName : '')) + '" target="_blank" class="btn btn-sm btn-secondary" style="white-space:nowrap;font-size:.75rem;padding:.3rem .6rem" title="เพิ่มเข้า Google Calendar">📅 Calendar</a>' : ''}
-            <button class="btn btn-sm" style="font-size:.75rem;padding:.3rem .6rem;background:#48bb78;color:white"
-              data-vac-id="\${v.id}"
-              data-vaccine="\${escapeHtml(v.vaccineName)}"
-              onclick="recordVaccinated(CURRENT_CAT.id,this.dataset.vacId,this.dataset.vaccine,CURRENT_CAT.name,this)">✅ ฉีดแล้ว</button>
-          </div>
+          \${v.expirationDate ? '<div style="display:flex;flex-direction:column;gap:.3rem;align-items:flex-end"><a href="' + buildGCalUrl('นัดฉีดวัคซีน ' + v.vaccineName + ' (' + CURRENT_CAT.name + ')', v.expirationDate, 'ถึงเวลาฉีดวัคซีน ' + v.vaccineName + '\\nแมว: ' + CURRENT_CAT.name + (v.clinicName ? '\\nคลินิก: ' + v.clinicName : '')) + '" target="_blank" class="btn btn-sm btn-secondary" style="white-space:nowrap;font-size:.75rem;padding:.3rem .6rem" title="เพิ่มเข้า Google Calendar">📅 Calendar</a></div>' : ''}
         </div>
       </div>
     \`).join('') + '</div>';
