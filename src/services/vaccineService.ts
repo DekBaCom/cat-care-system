@@ -17,20 +17,24 @@ export class VaccineService {
     await execute(env.DB, `INSERT INTO vaccinations (id, cat_id, vaccine_name, vaccination_date, expiration_date, clinic_name, veterinarian_name, lot_number, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [id, catId, data.vaccineName ?? '', data.vaccinationDate ?? now.slice(0, 10), data.expirationDate ?? null, data.clinicName ?? null, data.veterinarianName ?? null, data.lotNumber ?? null, data.notes ?? null, now]);
     if (data.expirationDate) {
       const SEP = '━━━━━━━━━━━━━━━━━━━━';
-      const labels: Record<number, string> = { 30: 'อีก 30 วัน', 15: 'อีก 15 วัน', 7: 'อีก 7 วัน', 5: 'อีก 5 วัน', 2: 'อีก 2 วัน', 1: 'พรุ่งนี้' };
-      for (const days of [30, 15, 7, 5, 2, 1]) {
+      // Cancel old pending notifications for this cat/vaccine before creating new ones
+      await execute(env.DB,
+        `DELETE FROM notifications WHERE user_id = ? AND cat_id = ? AND type = 'vaccine' AND status = 'pending' AND title LIKE ?`,
+        [userId, catId, `%${data.vaccineName ?? ''}%`]);
+      const labels: Record<number, string> = { 30: 'อีก 30 วัน', 15: 'อีก 15 วัน', 7: 'อีก 7 วัน', 5: 'อีก 5 วัน', 2: 'อีก 2 วัน', 1: 'พรุ่งนี้', 0: 'วันนี้' };
+      for (const days of [30, 15, 7, 5, 2, 1, 0]) {
         const scheduled = new Date(data.expirationDate); scheduled.setDate(scheduled.getDate() - days);
+        scheduled.setUTCHours(2, 0, 0, 0);
         if (scheduled.getTime() < Date.now()) continue;
-        const scheduledDay = scheduled.toISOString().slice(0, 10);
-        const exists = await query<{ id: string }>(env.DB,
-          `SELECT id FROM notifications WHERE user_id = ? AND cat_id = ? AND type = 'vaccine' AND date(scheduled_date) = ? AND title LIKE ?`,
-          [userId, catId, scheduledDay, `%${data.vaccineName ?? ''}%`]);
-        if (exists.length > 0) continue;
         const label = labels[days];
-        await execute(env.DB, `INSERT INTO notifications (id, user_id, cat_id, type, title, message, status, scheduled_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`, [uuidv4(), userId, catId, 'vaccine',
-          `💉 ${cat.name} · ${data.vaccineName ?? ''} · ${label}`,
-          `💉 แจ้งเตือนวัคซีน\n${SEP}\n🐱 แมว: ${cat.name}\n📌 วัคซีน: ${data.vaccineName ?? ''}\n📅 วันนัดฉีด: ${data.expirationDate}\n⏰ ${label}\n${SEP}\nกรุณานัดหมายคลินิกล่วงหน้า 🏥`,
-          'pending', scheduled.toISOString(), now]);
+        const title = days === 0
+          ? `⚠️ ${cat.name} · ${data.vaccineName ?? ''} · วันนี้!`
+          : `💉 ${cat.name} · ${data.vaccineName ?? ''} · ${label}`;
+        const message = days === 0
+          ? `⚠️ วันนัดฉีดวัคซีนมาถึงแล้ว!\n${SEP}\n🐱 แมว: ${cat.name}\n📌 วัคซีน: ${data.vaccineName ?? ''}\n📅 วันนัด: วันนี้ (${data.expirationDate})\n${SEP}\nกรุณานัดหมายคลินิกวันนี้ 🏥`
+          : `💉 แจ้งเตือนวัคซีน\n${SEP}\n🐱 แมว: ${cat.name}\n📌 วัคซีน: ${data.vaccineName ?? ''}\n📅 วันนัดฉีด: ${data.expirationDate}\n⏰ ${label}\n${SEP}\nกรุณานัดหมายคลินิกล่วงหน้า 🏥`;
+        await execute(env.DB, `INSERT INTO notifications (id, user_id, cat_id, type, title, message, status, scheduled_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [uuidv4(), userId, catId, 'vaccine', title, message, 'pending', scheduled.toISOString(), now]);
       }
     }
     return rowToVaccination((await queryOne<VaccinationRow>(env.DB, 'SELECT * FROM vaccinations WHERE id = ?', [id]))!);
@@ -47,13 +51,38 @@ export class VaccineService {
   }
 
   static async updateVaccination(vacId: string, catId: string, userId: string, updates: Partial<Vaccination>, env: Env): Promise<Vaccination> {
-    await CatService.getCatById(catId, userId, env);
+    const cat = await CatService.getCatById(catId, userId, env);
     if (!await queryOne<{ id: string }>(env.DB, 'SELECT id FROM vaccinations WHERE id = ? AND cat_id = ?', [vacId, catId])) throw NOT_FOUND;
     const fieldMap: Record<string, string> = { vaccineName: 'vaccine_name', vaccinationDate: 'vaccination_date', expirationDate: 'expiration_date', clinicName: 'clinic_name', veterinarianName: 'veterinarian_name', lotNumber: 'lot_number', notes: 'notes' };
     const setClauses: string[] = []; const values: unknown[] = [];
     for (const [key, col] of Object.entries(fieldMap)) { const val = updates[key as keyof Vaccination]; if (val !== undefined) { setClauses.push(`${col} = ?`); values.push(val); } }
     if (setClauses.length > 0) { values.push(vacId, catId); await execute(env.DB, `UPDATE vaccinations SET ${setClauses.join(', ')} WHERE id = ? AND cat_id = ?`, values); }
-    return rowToVaccination((await queryOne<VaccinationRow>(env.DB, 'SELECT * FROM vaccinations WHERE id = ?', [vacId]))!);
+    const updated = rowToVaccination((await queryOne<VaccinationRow>(env.DB, 'SELECT * FROM vaccinations WHERE id = ?', [vacId]))!);
+    // If expirationDate changed, rebuild notifications from the new date
+    if (updates.expirationDate !== undefined) {
+      const vaccineName = updates.vaccineName ?? updated.vaccineName;
+      const SEP = '━━━━━━━━━━━━━━━━━━━━';
+      await execute(env.DB,
+        `DELETE FROM notifications WHERE user_id = ? AND cat_id = ? AND type = 'vaccine' AND status = 'pending' AND title LIKE ?`,
+        [userId, catId, `%${vaccineName}%`]);
+      if (updates.expirationDate) {
+        const now = new Date().toISOString();
+        const labels: Record<number, string> = { 30: 'อีก 30 วัน', 15: 'อีก 15 วัน', 7: 'อีก 7 วัน', 5: 'อีก 5 วัน', 2: 'อีก 2 วัน', 1: 'พรุ่งนี้', 0: 'วันนี้' };
+        for (const days of [30, 15, 7, 5, 2, 1, 0]) {
+          const scheduled = new Date(updates.expirationDate); scheduled.setDate(scheduled.getDate() - days);
+          scheduled.setUTCHours(2, 0, 0, 0);
+          if (scheduled.getTime() < Date.now()) continue;
+          const label = labels[days];
+          const title = days === 0 ? `⚠️ ${cat.name} · ${vaccineName} · วันนี้!` : `💉 ${cat.name} · ${vaccineName} · ${label}`;
+          const message = days === 0
+            ? `⚠️ วันนัดฉีดวัคซีนมาถึงแล้ว!\n${SEP}\n🐱 แมว: ${cat.name}\n📌 วัคซีน: ${vaccineName}\n📅 วันนัด: วันนี้ (${updates.expirationDate})\n${SEP}\nกรุณานัดหมายคลินิกวันนี้ 🏥`
+            : `💉 แจ้งเตือนวัคซีน\n${SEP}\n🐱 แมว: ${cat.name}\n📌 วัคซีน: ${vaccineName}\n📅 วันนัดฉีด: ${updates.expirationDate}\n⏰ ${label}\n${SEP}\nกรุณานัดหมายคลินิกล่วงหน้า 🏥`;
+          await execute(env.DB, `INSERT INTO notifications (id, user_id, cat_id, type, title, message, status, scheduled_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [uuidv4(), userId, catId, 'vaccine', title, message, 'pending', scheduled.toISOString(), now]);
+        }
+      }
+    }
+    return updated;
   }
 
   static async deleteVaccination(vacId: string, catId: string, userId: string, env: Env): Promise<void> {

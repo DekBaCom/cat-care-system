@@ -60,6 +60,12 @@ export class NotificationService {
     const now = new Date().toISOString();
 
     for (const row of rows) {
+      // Remove stale pending notifications that reference a different expiration_date for this cat/vaccine
+      await execute(env.DB,
+        `DELETE FROM notifications WHERE user_id = ? AND cat_id = ? AND type = 'vaccine' AND status = 'pending' AND title LIKE ? AND message NOT LIKE ?`,
+        [row.user_id, row.cat_id, `%${row.vaccine_name}%`, `%${row.expiration_date}%`]
+      );
+
       const checkpoints = [
         { daysBefore: 30, label: 'อีก 30 วัน' },
         { daysBefore: 15, label: 'อีก 15 วัน' },
@@ -122,6 +128,12 @@ export class NotificationService {
     const now = new Date().toISOString();
 
     for (const row of rows) {
+      // Remove stale pending notifications that reference a different next_due_date for this cat
+      await execute(env.DB,
+        `DELETE FROM notifications WHERE user_id = ? AND cat_id = ? AND type = 'reminder' AND status = 'pending' AND title LIKE ? AND message NOT LIKE ?`,
+        [row.user_id, row.cat_id, `%ถ่ายพยาธิ%`, `%${row.next_due_date}%`]
+      );
+
       const checkpoints = [
         { daysBefore: 30, label: 'อีก 30 วัน' },
         { daysBefore: 15, label: 'อีก 15 วัน' },
