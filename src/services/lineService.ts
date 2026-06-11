@@ -92,9 +92,9 @@ export class LineService {
     } else if (text === '/status') {
       const [cats, vaccines, meds, dewormings] = await Promise.all([
         query<{ name: string }>(env.DB, `SELECT name FROM cats`, []),
-        query<{ count: number }>(env.DB, `SELECT COUNT(*) AS count FROM vaccinations WHERE date(expiration_date) <= date('now', '+7 hours', '+7 days') AND date(expiration_date) >= date('now', '+7 hours')`, []),
+        query<{ count: number }>(env.DB, `SELECT COUNT(*) AS count FROM vaccinations v WHERE date(v.expiration_date) <= date('now', '+7 hours', '+7 days') AND date(v.expiration_date) >= date('now', '+7 hours') AND v.id = (SELECT v2.id FROM vaccinations v2 WHERE v2.cat_id = v.cat_id AND v2.vaccine_name = v.vaccine_name ORDER BY v2.vaccination_date DESC, v2.created_at DESC LIMIT 1)`, []),
         query<{ count: number }>(env.DB, `SELECT COUNT(*) AS count FROM medications WHERE is_active = 1`, []),
-        query<{ count: number }>(env.DB, `SELECT COUNT(*) AS count FROM dewormings WHERE date(next_due_date) <= date('now', '+7 hours', '+7 days') AND date(next_due_date) >= date('now', '+7 hours')`, []),
+        query<{ count: number }>(env.DB, `SELECT COUNT(*) AS count FROM dewormings d WHERE date(d.next_due_date) <= date('now', '+7 hours', '+7 days') AND date(d.next_due_date) >= date('now', '+7 hours') AND d.id = (SELECT d2.id FROM dewormings d2 WHERE d2.cat_id = d.cat_id ORDER BY d2.deworming_date DESC, d2.created_at DESC LIMIT 1)`, []),
       ]);
       reply = `📊 สรุปสุขภาพแมว\n${SEP}\n🐱 แมวทั้งหมด: ${cats.length} ตัว\n💉 วัคซีนใกล้ถึงกำหนด: ${vaccines[0]?.count ?? 0} รายการ\n💊 ยาที่กำลังให้: ${meds[0]?.count ?? 0} รายการ\n🐛 ถ่ายพยาธิใกล้ถึงกำหนด: ${dewormings[0]?.count ?? 0} รายการ\n${SEP}`;
     } else if (text === '/help') {
