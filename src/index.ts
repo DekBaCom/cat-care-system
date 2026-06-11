@@ -15,6 +15,7 @@ import { expenseRoutes } from './routes/expenses';
 import { notificationRoutes } from './routes/notifications';
 import { shareRoutes } from './routes/share';
 import { dewormingRoutes } from './routes/dewormings';
+import { fleaTreatmentRoutes } from './routes/fleaTreatments';
 import { renderSharePage } from './pages/share';
 import { lineWebhook } from './webhooks/line';
 import { handleScheduled } from './scheduled/notifications';
@@ -94,6 +95,7 @@ app.route('/api', expenseRoutes);
 app.route('/api', notificationRoutes);
 app.route('/api', shareRoutes);
 app.route('/api', dewormingRoutes);
+app.route('/api', fleaTreatmentRoutes);
 app.notFound((c) => c.json({ success: false, error: 'Not Found' }, 404));
 
 export default { fetch: app.fetch, scheduled: handleScheduled };

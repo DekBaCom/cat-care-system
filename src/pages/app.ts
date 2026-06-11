@@ -363,6 +363,7 @@ input,select,textarea{font-size:16px} /* Prevents iOS zoom on focus */
         <button class="tab active" data-tab="info" onclick="switchDetailTab('info')">ข้อมูล</button>
         <button class="tab" data-tab="vacc" onclick="switchDetailTab('vacc')">💉 วัคซีน</button>
         <button class="tab" data-tab="deworm" onclick="switchDetailTab('deworm')">🐛 พยาธิ</button>
+        <button class="tab" data-tab="flea" onclick="switchDetailTab('flea')">🐾 หยอดหลัง</button>
         <button class="tab" data-tab="meds" onclick="switchDetailTab('meds')">💊 ยา</button>
         <button class="tab" data-tab="medical" onclick="switchDetailTab('medical')">🏥 ประวัติ</button>
         <button class="tab" data-tab="weight" onclick="switchDetailTab('weight')">⚖️ น้ำหนัก</button>
@@ -372,6 +373,7 @@ input,select,textarea{font-size:16px} /* Prevents iOS zoom on focus */
       <div id="tab-info" class="tab-content"></div>
       <div id="tab-vacc" class="tab-content hidden"></div>
       <div id="tab-deworm" class="tab-content hidden"></div>
+      <div id="tab-flea" class="tab-content hidden"></div>
       <div id="tab-meds" class="tab-content hidden"></div>
       <div id="tab-medical" class="tab-content hidden"></div>
       <div id="tab-weight" class="tab-content hidden"></div>
@@ -987,9 +989,10 @@ function closeDetail() {
 
 function switchDetailTab(tab) {
   document.querySelectorAll('#cat-detail .tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tab));
-  ['info', 'vacc', 'deworm', 'meds', 'medical', 'weight', 'timeline', 'expenses'].forEach(t => document.getElementById('tab-' + t).classList.toggle('hidden', t !== tab));
+  ['info', 'vacc', 'deworm', 'flea', 'meds', 'medical', 'weight', 'timeline', 'expenses'].forEach(t => document.getElementById('tab-' + t).classList.toggle('hidden', t !== tab));
   if (tab === 'vacc') loadVaccinations();
   if (tab === 'deworm') loadDewormings();
+  if (tab === 'flea') loadFleaTreatments();
   if (tab === 'meds') loadMedications();
   if (tab === 'medical') loadMedicalHistory();
   if (tab === 'weight') loadWeightHistory();
@@ -1707,6 +1710,60 @@ async function deleteDeworm(id) {
   try {
     await api('/api/cats/' + CURRENT_CAT.id + '/dewormings/' + id, { method: 'DELETE' });
     toast('ลบแล้ว'); loadDewormings();
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+async function loadFleaTreatments() {
+  const el = document.getElementById('tab-flea');
+  el.innerHTML = '<div style="margin-bottom:1rem"><button class="btn btn-sm" onclick="openFleaTreatmentModal()">+ บันทึกหยอดหลัง</button></div><div id="flea-list"></div>';
+  try {
+    const r = await api('/api/cats/' + CURRENT_CAT.id + '/flea-treatments');
+    const list = document.getElementById('flea-list');
+    if (r.data.fleaTreatments.length === 0) { list.innerHTML = '<div class="empty">ยังไม่มีบันทึกการหยอดหลัง</div>'; return; }
+    list.innerHTML = '<div class="records-list">' + r.data.fleaTreatments.map(f => \`
+      <div class="record">
+        <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:.5rem">
+          <div style="flex:1">
+            <div class="record-title">🐾 หยอดหลัง \${f.productName ? '— ' + escapeHtml(f.productName) : ''}</div>
+            <div class="record-meta">วันที่หยอด: \${f.treatmentDate}\${f.nextDueDate ? ' · นัดครั้งต่อไป: ' + f.nextDueDate : ''}</div>
+            \${f.dose ? '<div class="record-meta">ขนาด: ' + escapeHtml(f.dose) + '</div>' : ''}
+            \${f.weightAtTime ? '<div class="record-meta">น้ำหนักวันที่หยอด: ' + f.weightAtTime + ' kg</div>' : ''}
+            \${f.notes ? '<div class="record-meta">📝 ' + escapeHtml(f.notes) + '</div>' : ''}
+          </div>
+          <div style="display:flex;flex-direction:column;gap:.3rem;align-items:flex-end">
+            \${f.nextDueDate ? '<a href="' + buildGCalUrl('หยอดหลัง ' + CURRENT_CAT.name, f.nextDueDate, 'ถึงเวลาหยอดหลัง ' + CURRENT_CAT.name + (f.productName ? '\\nยา: ' + f.productName : '')) + '" target="_blank" class="btn btn-sm btn-secondary" style="white-space:nowrap;font-size:.75rem;padding:.3rem .6rem">📅 Calendar</a>' : ''}
+            <button class="btn btn-sm btn-secondary" style="font-size:.75rem;color:#e53e3e;border-color:#e53e3e" onclick="deleteFleaTreatment('\${f.id}')">🗑</button>
+          </div>
+        </div>
+      </div>
+    \`).join('') + '</div>';
+  } catch (err) { toast(err.message, 'error'); }
+}
+
+function openFleaTreatmentModal() {
+  const today = new Date().toISOString().slice(0, 10);
+  modal('🐾 บันทึกหยอดหลัง', \`
+    <div class="field"><label>วันที่หยอด *</label><input type="date" name="treatmentDate" value="\${today}" required></div>
+    <div class="field"><label>วันนัดครั้งต่อไป</label><input type="date" name="nextDueDate"></div>
+    <div class="field"><label>ชื่อยา/ผลิตภัณฑ์</label><input name="productName" placeholder="เช่น Frontline, Revolution, Advantage"></div>
+    <div class="field"><label>ขนาดที่ใช้</label><input name="dose" placeholder="เช่น 0.5 ml, S, M, L"></div>
+    <div class="field"><label>น้ำหนักวันที่หยอด (kg)</label><input type="number" name="weightAtTime" step="0.1" min="0"></div>
+    <div class="field"><label>หมายเหตุ</label><textarea name="notes" rows="2"></textarea></div>
+  \`, async (f) => {
+    const body = { treatmentDate: f.get('treatmentDate') };
+    ['nextDueDate', 'productName', 'dose', 'notes'].forEach(k => { if (f.get(k)) body[k] = f.get(k); });
+    if (f.get('weightAtTime')) body['weightAtTime'] = parseFloat(f.get('weightAtTime'));
+    await api('/api/cats/' + CURRENT_CAT.id + '/flea-treatments', { method: 'POST', body: JSON.stringify(body) });
+    toast('บันทึกหยอดหลังสำเร็จ');
+    loadFleaTreatments();
+  });
+}
+
+async function deleteFleaTreatment(id) {
+  if (!confirm('ลบบันทึกการหยอดหลังนี้?')) return;
+  try {
+    await api('/api/cats/' + CURRENT_CAT.id + '/flea-treatments/' + id, { method: 'DELETE' });
+    toast('ลบแล้ว'); loadFleaTreatments();
   } catch (err) { toast(err.message, 'error'); }
 }
 
