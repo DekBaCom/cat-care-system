@@ -42,7 +42,7 @@ export class VaccineService {
 
   static async getVaccinationsByCatId(catId: string, userId: string, env: Env): Promise<Vaccination[]> {
     await CatService.getCatById(catId, userId, env);
-    return (await query<VaccinationRow>(env.DB, `SELECT * FROM vaccinations WHERE cat_id = ? AND id = (SELECT v2.id FROM vaccinations v2 WHERE v2.cat_id = vaccinations.cat_id AND v2.vaccine_name = vaccinations.vaccine_name ORDER BY v2.vaccination_date DESC, v2.created_at DESC LIMIT 1) ORDER BY vaccination_date DESC`, [catId])).map(rowToVaccination);
+    return (await query<VaccinationRow>(env.DB, 'SELECT * FROM vaccinations WHERE cat_id = ? ORDER BY vaccination_date DESC', [catId])).map(rowToVaccination);
   }
 
   static async getUpcomingVaccinations(_userId: string, env: Env): Promise<(Vaccination & { catName: string })[]> {
