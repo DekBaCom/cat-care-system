@@ -57,8 +57,7 @@ export class LineService {
     const dueLabel = (diff: number): string => {
       if (diff < 0) return `❗ เลย ${Math.abs(diff)} วันแล้ว`;
       if (diff === 0) return `⚠️ ถึงกำหนดวันนี้`;
-      if (diff <= 3) return `⏰ อีก ${diff} วัน ⚡`;
-      return `⏰ อีก ${diff} วัน`;
+      return `⏰ อีก : ${diff} วัน`;
     };
 
     let reply = '';

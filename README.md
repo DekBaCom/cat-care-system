@@ -1,6 +1,6 @@
 # Cat Care Management System
 
-A full-featured cat health management system built on Cloudflare Workers. Tracks vaccinations, medications, medical history, diet, weight, expenses, dewormings, and sends reminders via LINE.
+A full-featured cat health management system built on Cloudflare Workers. Tracks vaccinations, medications, medical history, diet, weight, expenses, dewormings, spot-on flea treatments, and sends reminders via LINE and web notifications.
 
 **Live:** https://cat-care.ilikeit.info
 
@@ -14,7 +14,7 @@ A full-featured cat health management system built on Cloudflare Workers. Tracks
 | Storage | Cloudflare R2 (photos) |
 | Cache | Cloudflare KV |
 | Auth | JWT + PBKDF2, Google OAuth |
-| Notifications | LINE Messaging API |
+| Notifications | LINE Messaging API + Web (in-app bell) |
 
 ## Features
 
@@ -23,13 +23,76 @@ A full-featured cat health management system built on Cloudflare Workers. Tracks
 - **Medical history** — illness / injury / checkup / surgery with treating/recovered status
 - **Medications** — active medication tracking with daily reminders
 - **Dewormings** — deworming records with due-date reminders
+- **Spot-on flea treatments** — หยอดหลัง records with next-due tracking
 - **Diet & feeding schedule** — diet plans and meal scheduling
 - **Weight logs** — weight history tracking
 - **Expenses** — cost tracking per cat
 - **Timeline** — unified activity feed
 - **Dashboard** — summary overview
 - **LINE Bot** — real-time chatbot commands + push notifications
-- **Scheduled notifications** — alerts at 30/7/3/1 days before due, on the day, and daily overdue reminders
+- **Web notifications** — in-app bell icon with unread badge, multi-line formatted messages
+- **Scheduled notifications** — alerts at 30/15/7/5/2/1 days before due, on the day, and daily overdue reminders
+
+## วิธีใช้งาน
+
+### 1. สมัครสมาชิก / เข้าสู่ระบบ
+
+เปิด https://cat-care.ilikeit.info แล้วสมัครด้วย Email หรือ Google Account
+
+### 2. เพิ่มข้อมูลแมว
+
+กด **"+ เพิ่มแมว"** ที่หน้าหลัก กรอกชื่อ สายพันธุ์ วันเกิด เพศ น้ำหนัก และอัปโหลดรูปภาพได้
+
+### 3. บันทึกวัคซีน
+
+เปิดโปรไฟล์แมว → แท็บ **💉 วัคซีน** → กรอกชื่อวัคซีน วันที่ฉีด และ **วันนัดฉีดครั้งต่อไป**
+ระบบจะแจ้งเตือนอัตโนมัติที่ 30/15/7/5/2/1 วันก่อนถึงกำหนด
+
+### 4. บันทึกการถ่ายพยาธิ
+
+แท็บ **🐛 ถ่ายพยาธิ** → กรอกวันที่ถ่าย ชื่อยา และวันนัดครั้งถัดไป
+
+### 5. บันทึกการหยอดหลัง (Spot-on)
+
+แท็บ **🐾 หยอดหลัง** → กรอกวันที่หยอด ชื่อยา ขนาด และวันนัดครั้งถัดไป
+
+### 6. บันทึกยาที่ต้องให้ประจำ
+
+แท็บ **💊 ยา** → เพิ่มยา ระบุขนาดและสถานะ Active
+ระบบจะแจ้งเตือนทุกวันเวลา 09:00 น.
+
+### 7. บันทึกประวัติการรักษา
+
+แท็บ **🏥 ประวัติสุขภาพ** → บันทึกอาการ การวินิจฉัย ชื่อสัตวแพทย์ และสถานะ (กำลังรักษา / หายแล้ว)
+
+### 8. บันทึกน้ำหนัก
+
+แท็บ **⚖️ น้ำหนัก** → บันทึกน้ำหนักพร้อมวันที่ เพื่อติดตามพัฒนาการ
+
+### 9. บันทึกค่าใช้จ่าย
+
+แท็บ **💰 ค่าใช้จ่าย** → บันทึกรายการค่าใช้จ่ายพร้อมหมวดหมู่และรายละเอียด
+
+### 10. แชร์โปรไฟล์แมว
+
+แท็บ **🔗 แชร์** → สร้าง Public Link เพื่อให้สัตวแพทย์หรือคนอื่นดูข้อมูลแมวโดยไม่ต้อง Login
+
+### 11. เชื่อมต่อ LINE เพื่อรับการแจ้งเตือน
+
+1. เปิด **⚙️ ตั้งค่า** → **เชื่อมต่อ LINE**
+2. รับโค้ด 6 หลัก
+3. ส่งโค้ดนั้นไปที่ LINE Bot ของระบบ
+4. ระบบจะส่งแจ้งเตือนวัคซีน ถ่ายพยาธิ และยาเข้า LINE โดยอัตโนมัติ
+
+### 12. ดู Dashboard
+
+หน้าหลักแสดงสรุปภาพรวม: วัคซีนใกล้ถึงกำหนด, ยาที่กำลังให้, การถ่ายพยาธิที่ใกล้ครบ
+
+### 13. ดูการแจ้งเตือนในเว็บ
+
+กดไอคอน **🔔** มุมบนขวา เพื่อดูรายการแจ้งเตือนทั้งหมด
+
+---
 
 ## Quick Start
 
@@ -130,6 +193,14 @@ All authenticated endpoints require `Authorization: Bearer <token>`.
 | GET | `/api/cats/:catId/dewormings` | ✓ |
 | POST | `/api/cats/:catId/dewormings` | ✓ |
 
+### Flea Treatments
+
+| Method | Path | Auth |
+|---|---|---|
+| GET | `/api/cats/:catId/flea-treatments` | ✓ |
+| POST | `/api/cats/:catId/flea-treatments` | ✓ |
+| DELETE | `/api/cats/:catId/flea-treatments/:id` | ✓ |
+
 ### Diet & Feeding
 
 | Method | Path | Auth |
@@ -166,6 +237,7 @@ All authenticated endpoints require `Authorization: Bearer <token>`.
 |---|---|---|
 | GET | `/api/notifications` | ✓ |
 | POST | `/api/notifications/read-all` | ✓ |
+| POST | `/api/notifications/test` | ✓ |
 
 ### Photos
 
@@ -197,18 +269,35 @@ Connect your LINE account via **Settings → LINE** in the app (enter the 6-digi
 | `/myid` | Show your LINE User ID |
 | `/help` | Show all available commands |
 
-## LINE Push Notifications
+## Notification Format
 
-Automatic push notifications are sent via LINE at the following checkpoints:
+Vaccine and deworming alerts use this format on both LINE and web:
+
+```
+💉 แจ้งเตือน : {ชื่อวัคซีน}
+━━━━━━━━━━━━━━━━━━━━
+🐱 แมว: {ชื่อแมว}
+📌 วัคซีน: {ชื่อวัคซีน}
+📅 วันนัดฉีด: {วันที่}
+⏰ อีก : {จำนวน} วัน
+━━━━━━━━━━━━━━━━━━━━
+กรุณานัดหมายคลินิกล่วงหน้า 🏥
+```
+
+## Push Notifications Schedule
+
+Automatic push notifications are sent via LINE and shown in the web bell at the following checkpoints:
 
 | Trigger | Vaccines | Dewormings | Medications |
 |---|---|---|---|
 | 30 days before | ✓ | ✓ | — |
+| 15 days before | ✓ | ✓ | — |
 | 7 days before | ✓ | ✓ | — |
-| 3 days before | ✓ | ✓ | — |
+| 5 days before | ✓ | ✓ | — |
+| 2 days before | ✓ | ✓ | — |
 | 1 day before | ✓ | ✓ | — |
 | On the day | ✓ | ✓ | — |
-| Daily (09:00) | overdue repeat | overdue repeat | ✓ active meds |
+| Daily (09:00 UTC+7) | overdue repeat | overdue repeat | ✓ active meds |
 
 ## Scripts
 

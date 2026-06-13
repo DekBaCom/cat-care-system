@@ -98,7 +98,7 @@ export class NotificationService {
 
         const message = daysBefore === 0
           ? `⚠️ วันนัดฉีดวัคซีนมาถึงแล้ว!\n${SEP}\n🐱 แมว: ${row.cat_name}\n📌 วัคซีน: ${row.vaccine_name}\n📅 วันนัด: วันนี้ (${row.expiration_date})\n${SEP}\nกรุณานัดหมายคลินิกวันนี้ 🏥`
-          : `💉 แจ้งเตือนวัคซีน\n${SEP}\n🐱 แมว: ${row.cat_name}\n📌 วัคซีน: ${row.vaccine_name}\n📅 วันนัดฉีด: ${row.expiration_date}\n⏰ ${label}\n${SEP}\nกรุณานัดหมายคลินิกล่วงหน้า 🏥`;
+          : `💉 แจ้งเตือน : ${row.vaccine_name}\n${SEP}\n🐱 แมว: ${row.cat_name}\n📌 วัคซีน: ${row.vaccine_name}\n📅 วันนัดฉีด: ${row.expiration_date}\n⏰ อีก : ${daysBefore} วัน\n${SEP}\nกรุณานัดหมายคลินิกล่วงหน้า 🏥`;
 
         await execute(env.DB,
           `INSERT INTO notifications (id, user_id, cat_id, type, title, message, status, scheduled_date, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,

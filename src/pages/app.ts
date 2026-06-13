@@ -52,7 +52,7 @@ label{display:block;font-size:.85rem;font-weight:600;color:#4a5568;margin-bottom
 .notif-item{padding:.75rem 1rem;border-bottom:1px solid #f7fafc;cursor:default}
 .notif-item.unread{background:#ebf4ff}
 .notif-item-title{font-size:.85rem;font-weight:600;color:#2d3748;margin-bottom:.2rem}
-.notif-item-msg{font-size:.8rem;color:#718096}
+.notif-item-msg{font-size:.8rem;color:#718096;white-space:pre-line;line-height:1.6;word-break:break-word}
 .notif-item-time{font-size:.7rem;color:#a0aec0;margin-top:.2rem}
 .notif-empty{text-align:center;padding:2rem;color:#a0aec0;font-size:.85rem}
 .notif-wrap{position:relative}
