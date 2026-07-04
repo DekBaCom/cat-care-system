@@ -17,10 +17,11 @@ export class VaccineService {
     await execute(env.DB, `INSERT INTO vaccinations (id, cat_id, vaccine_name, vaccination_date, expiration_date, clinic_name, veterinarian_name, lot_number, notes, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`, [id, catId, data.vaccineName ?? '', data.vaccinationDate ?? now.slice(0, 10), data.expirationDate ?? null, data.clinicName ?? null, data.veterinarianName ?? null, data.lotNumber ?? null, data.notes ?? null, now]);
     if (data.expirationDate) {
       const SEP = '━━━━━━━━━━━━━━━━━━━━';
-      // Cancel old pending notifications for this cat/vaccine before creating new ones
+      // Notifications track only the latest vaccination per cat, so purge every pending
+      // vaccine notification for this cat before recreating them from the new record.
       await execute(env.DB,
-        `DELETE FROM notifications WHERE user_id = ? AND cat_id = ? AND type = 'vaccine' AND status = 'pending' AND title LIKE ?`,
-        [userId, catId, `%${data.vaccineName ?? ''}%`]);
+        `DELETE FROM notifications WHERE user_id = ? AND cat_id = ? AND type = 'vaccine' AND status = 'pending'`,
+        [userId, catId]);
       const labels: Record<number, string> = { 30: 'อีก 30 วัน', 15: 'อีก 15 วัน', 7: 'อีก 7 วัน', 5: 'อีก 5 วัน', 2: 'อีก 2 วัน', 1: 'พรุ่งนี้', 0: 'วันนี้' };
       for (const days of [30, 15, 7, 5, 2, 1, 0]) {
         const scheduled = new Date(data.expirationDate); scheduled.setDate(scheduled.getDate() - days);
@@ -46,7 +47,7 @@ export class VaccineService {
   }
 
   static async getUpcomingVaccinations(_userId: string, env: Env): Promise<(Vaccination & { catName: string })[]> {
-    const rows = await query<VaccinationRow & { cat_name: string }>(env.DB, `SELECT v.*, c.name AS cat_name FROM vaccinations v JOIN cats c ON v.cat_id = c.id WHERE v.expiration_date IS NOT NULL AND date(v.expiration_date) <= date('now', '+7 hours', '+30 days') AND v.id = (SELECT v2.id FROM vaccinations v2 WHERE v2.cat_id = v.cat_id AND v2.vaccine_name = v.vaccine_name ORDER BY v2.vaccination_date DESC, v2.created_at DESC LIMIT 1) ORDER BY v.expiration_date ASC`, []);
+    const rows = await query<VaccinationRow & { cat_name: string }>(env.DB, `SELECT v.*, c.name AS cat_name FROM vaccinations v JOIN cats c ON v.cat_id = c.id WHERE v.expiration_date IS NOT NULL AND date(v.expiration_date) <= date('now', '+7 hours', '+30 days') AND v.id = (SELECT v2.id FROM vaccinations v2 WHERE v2.cat_id = v.cat_id ORDER BY v2.vaccination_date DESC, v2.created_at DESC LIMIT 1) ORDER BY v.expiration_date ASC`, []);
     return rows.map((r) => ({ ...rowToVaccination(r), catName: r.cat_name }));
   }
 
@@ -62,9 +63,10 @@ export class VaccineService {
     if (updates.expirationDate !== undefined) {
       const vaccineName = updates.vaccineName ?? updated.vaccineName;
       const SEP = '━━━━━━━━━━━━━━━━━━━━';
+      // Notifications track only the latest vaccination per cat — clear every pending one first.
       await execute(env.DB,
-        `DELETE FROM notifications WHERE user_id = ? AND cat_id = ? AND type = 'vaccine' AND status = 'pending' AND title LIKE ?`,
-        [userId, catId, `%${vaccineName}%`]);
+        `DELETE FROM notifications WHERE user_id = ? AND cat_id = ? AND type = 'vaccine' AND status = 'pending'`,
+        [userId, catId]);
       if (updates.expirationDate) {
         const now = new Date().toISOString();
         const labels: Record<number, string> = { 30: 'อีก 30 วัน', 15: 'อีก 15 วัน', 7: 'อีก 7 วัน', 5: 'อีก 5 วัน', 2: 'อีก 2 วัน', 1: 'พรุ่งนี้', 0: 'วันนี้' };

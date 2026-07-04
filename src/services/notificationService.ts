@@ -17,6 +17,10 @@ function scheduledAt(dateStr: string, daysBefore: number): string {
 
 export class NotificationService {
   static async sendDueNotifications(env: Env): Promise<void> {
+    // Belt-and-suspenders: purge any pending vaccine notifications that no longer reference
+    // the latest vaccination record's expiration_date (e.g. left over from a superseded record).
+    await NotificationService.deleteStaleVaccineNotifications(env);
+
     const now = new Date().toISOString();
     // Atomically claim and mark as sent to prevent concurrent invocations from sending duplicates
     const result = await env.DB
@@ -38,9 +42,40 @@ export class NotificationService {
     }
   }
 
+  /**
+   * Delete pending vaccine notifications whose message no longer matches the latest
+   * vaccination record per cat (regardless of vaccine_name). Runs unconditionally
+   * (not filtered by due-date window) so notifications tied to superseded records are
+   * cleared even when the latest expiration is far outside the reminder window.
+   */
+  private static async deleteStaleVaccineNotifications(env: Env): Promise<void> {
+    await execute(env.DB,
+      `DELETE FROM notifications
+       WHERE type = 'vaccine' AND status = 'pending' AND cat_id IS NOT NULL
+         AND NOT EXISTS (
+           SELECT 1 FROM vaccinations v
+           WHERE v.cat_id = notifications.cat_id
+             AND v.expiration_date IS NOT NULL
+             AND notifications.title LIKE '%' || v.vaccine_name || '%'
+             AND notifications.message LIKE '%' || v.expiration_date || '%'
+             AND v.id = (
+               SELECT v2.id FROM vaccinations v2
+               WHERE v2.cat_id = v.cat_id
+               ORDER BY v2.vaccination_date DESC, v2.created_at DESC LIMIT 1
+             )
+         )`,
+      []
+    );
+  }
+
   static async checkVaccinationsDue(env: Env): Promise<void> {
+    // Always start by purging notifications tied to superseded vaccine records. This must run
+    // regardless of whether the latest record is within the 31-day window — otherwise a
+    // brand-new record with a far-future expiration date can leave old pending reminders behind.
+    await NotificationService.deleteStaleVaccineNotifications(env);
+
     // Look ahead 31 days to pre-create all notification points (30-day checkpoint needs +1 buffer)
-    // Only use the latest vaccination record per cat per vaccine type
+    // Only consider the latest vaccination record per cat (ignoring vaccine_name)
     const rows = await query<{ user_id: string; cat_id: string; cat_name: string; vaccine_name: string; expiration_date: string }>(
       env.DB,
       `SELECT c.user_id, v.cat_id, c.name AS cat_name, v.vaccine_name, v.expiration_date
@@ -51,7 +86,7 @@ export class NotificationService {
          AND date(v.expiration_date) <= date('now', '+7 hours', '+31 days')
          AND v.id = (
            SELECT v2.id FROM vaccinations v2
-           WHERE v2.cat_id = v.cat_id AND v2.vaccine_name = v.vaccine_name
+           WHERE v2.cat_id = v.cat_id
            ORDER BY v2.vaccination_date DESC, v2.created_at DESC LIMIT 1
          )`,
       []
@@ -60,12 +95,6 @@ export class NotificationService {
     const now = new Date().toISOString();
 
     for (const row of rows) {
-      // Remove stale pending notifications that reference a different expiration_date for this cat/vaccine
-      await execute(env.DB,
-        `DELETE FROM notifications WHERE user_id = ? AND cat_id = ? AND type = 'vaccine' AND status = 'pending' AND title LIKE ? AND message NOT LIKE ?`,
-        [row.user_id, row.cat_id, `%${row.vaccine_name}%`, `%${row.expiration_date}%`]
-      );
-
       const checkpoints = [
         { daysBefore: 30, label: 'อีก 30 วัน' },
         { daysBefore: 15, label: 'อีก 15 วัน' },
@@ -186,7 +215,7 @@ export class NotificationService {
          AND date(v.expiration_date) < date('now', '+7 hours')
          AND v.id = (
            SELECT v2.id FROM vaccinations v2
-           WHERE v2.cat_id = v.cat_id AND v2.vaccine_name = v.vaccine_name
+           WHERE v2.cat_id = v.cat_id
            ORDER BY v2.vaccination_date DESC, v2.created_at DESC LIMIT 1
          )`,
       []
